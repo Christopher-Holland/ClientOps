@@ -11,7 +11,7 @@ export default function Home() {
 
         <Link
           href="/dashboard"
-          className="mt-6 inline-flex rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
+          className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-medium text-accent-foreground hover:opacity-90"
         >
           Go to dashboard
         </Link>

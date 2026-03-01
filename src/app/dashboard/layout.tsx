@@ -1,5 +1,6 @@
 import { Sidebar } from "../components/layout/Sidebar";
 import { Topbar } from "../components/layout/Topbar";
+import { MobileNav } from "../components/layout/MobileNav";
 
 export default function DashboardLayout({
     children,
@@ -24,11 +25,12 @@ export default function DashboardLayout({
                             </div>
                         </div>
 
-                        {/* Footer spacing (optional) */}
-                        <div className="h-6" />
+                        {/* Footer spacing + room for mobile nav */}
+                        <div className="h-6 pb-24 lg:pb-0" />
                     </div>
                 </div>
             </div>
+            <MobileNav />
         </div>
     );
 }

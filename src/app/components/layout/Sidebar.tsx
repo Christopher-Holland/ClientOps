@@ -48,7 +48,7 @@ export function Sidebar() {
                                 key={item.href}
                                 href={item.href}
                                 className={cx(
-                                    "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition",
+                                    "group flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                                     isActive
                                         ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
                                         : "text-muted-foreground hover:bg-card hover:text-foreground"
@@ -72,7 +72,7 @@ export function Sidebar() {
                     <Link
                         href="/dashboard/settings"
                         className={cx(
-                            "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition",
+                            "group flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                             pathname.startsWith("/dashboard/settings")
                                 ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
                                 : "text-muted-foreground hover:bg-card hover:text-foreground"

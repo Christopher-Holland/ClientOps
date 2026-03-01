@@ -1,33 +1,19 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
-
-type ClientStatus = "Lead" | "Active" | "On hold";
-
-const clients: Array<{
-  name: string;
-  status: ClientStatus;
-  lastContact: string;
-  nextAction: string;
-}> = [
-    {
-      name: "ACME Co.",
-      status: "Lead",
-      lastContact: "Mar 1",
-      nextAction: "Follow up on proposal",
-    },
-    {
-      name: "Oliver — Site Refresh",
-      status: "Active",
-      lastContact: "Feb 28",
-      nextAction: "Send revised timeline",
-    },
-    {
-      name: "Local Studio",
-      status: "On hold",
-      lastContact: "Feb 10",
-      nextAction: "Check in next week",
-    },
-  ];
+import { Drawer } from "@/app/components/ui/Drawer";
+import {
+  Client,
+  ClientStatus,
+  createClient,
+  loadClients,
+  saveClients,
+  seedClients,
+  updateClient,
+} from "@/app/lib/store";
+import { ClientEditor } from "@/app/components/clients/ClientEditor";
 
 function StatusPill({ status }: { status: ClientStatus }) {
   const cls =
@@ -45,6 +31,53 @@ function StatusPill({ status }: { status: ClientStatus }) {
 }
 
 export default function ClientsPage() {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const loaded = loadClients();
+    if (loaded.length === 0) {
+      const seeded = seedClients();
+      setClients(seeded);
+      saveClients(seeded);
+      return;
+    }
+    setClients(loaded);
+  }, []);
+
+  const selected = useMemo(
+    () => clients.find((c) => c.id === selectedId) ?? null,
+    [clients, selectedId]
+  );
+
+  function persist(next: Client[]) {
+    setClients(next);
+    saveClients(next);
+  }
+
+  function onNewClient() {
+    const c = createClient({ name: "New client", status: "Lead" });
+    const next = [c, ...clients];
+    persist(next);
+    setSelectedId(c.id);
+    setOpen(true);
+  }
+
+  function onRowClick(id: string) {
+    setSelectedId(id);
+    setOpen(true);
+  }
+
+  function onSave(patch: Partial<Client>) {
+    if (!selected) return;
+    const next = clients.map((c) =>
+      c.id === selected.id ? updateClient(c, patch) : c
+    );
+    persist(next);
+    setOpen(false);
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -60,8 +93,17 @@ export default function ClientsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button href="#" variant="secondary">Export</Button>
-          <Button href="#" variant="primary">New client</Button>
+          <Button
+            onClick={() => {
+              saveClients(clients);
+            }}
+            variant="secondary"
+          >
+            Export
+          </Button>
+          <Button onClick={onNewClient} variant="primary">
+            New client
+          </Button>
         </div>
       </div>
 
@@ -79,15 +121,18 @@ export default function ClientsPage() {
             <tbody>
               {clients.map((c) => (
                 <tr
-                  key={c.name}
-                  className="border-t border-border/70 hover:bg-surface/60 transition"
+                  key={c.id}
+                  className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
+                  onClick={() => onRowClick(c.id)}
                 >
                   <td className="px-5 py-4 font-medium">{c.name}</td>
                   <td className="px-5 py-4">
                     <StatusPill status={c.status} />
                   </td>
-                  <td className="px-5 py-4 text-muted-foreground">{c.lastContact}</td>
-                  <td className="px-5 py-4">{c.nextAction}</td>
+                  <td className="px-5 py-4 text-muted-foreground">
+                    {c.lastContact || "—"}
+                  </td>
+                  <td className="px-5 py-4">{c.nextAction || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -95,12 +140,22 @@ export default function ClientsPage() {
         </div>
       </Card>
 
-      <Card>
-        <div className="text-sm font-semibold tracking-tight">Next step</div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Add a client detail page with notes, contacts, and linked projects.
-        </p>
-      </Card>
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        title={selected ? selected.name : "Client"}
+        footer={null}
+      >
+        {selected ? (
+          <ClientEditor
+            client={selected}
+            onCancel={() => setOpen(false)}
+            onSave={onSave}
+          />
+        ) : (
+          <div className="text-sm text-muted-foreground">No client selected.</div>
+        )}
+      </Drawer>
     </div>
   );
 }

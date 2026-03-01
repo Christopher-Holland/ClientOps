@@ -72,7 +72,27 @@ export default function ProjectsPage() {
       </div>
 
       <Card className="p-0">
-        <div className="overflow-x-auto">
+        {/* Mobile: card list */}
+        <div className="space-y-0 md:hidden">
+          {projects.map((p) => (
+            <div
+              key={p.name}
+              className="border-t border-border/70 p-4 first:border-t-0"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <span className="font-medium text-foreground">{p.name}</span>
+                <StatusPill status={p.status} />
+              </div>
+              <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                <span>Client: {p.client}</span>
+                <span>Due: {p.due}</span>
+                <span>{p.next}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Desktop: table */}
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-surface">
               <tr className="text-left text-xs font-medium text-muted-foreground">

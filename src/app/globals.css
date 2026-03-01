@@ -69,3 +69,23 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   background: rgb(var(--background));
 }
+
+/* Form control normalization (mobile Safari/Chrome) */
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+select {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  -webkit-text-size-adjust: 100%;
+}
