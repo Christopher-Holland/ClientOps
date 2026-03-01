@@ -1,45 +1,84 @@
+"use client";
+
 import Link from "next/link";
-import { LayoutDashboard, Users, FolderKanban, Settings } from "lucide-react";
+import { usePathname } from "next/navigation";
+import {
+    LayoutDashboard,
+    Users,
+    FolderKanban,
+    CreditCard,
+    Settings,
+} from "lucide-react";
 
 const nav = [
-    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/clients", label: "Clients", icon: Users },
     { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
+    { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
 
+function cx(...classes: Array<string | false | null | undefined>) {
+    return classes.filter(Boolean).join(" ");
+}
+
 export function Sidebar() {
+    const pathname = usePathname();
+
     return (
         <aside className="hidden w-64 shrink-0 lg:block">
-            <div className="sticky top-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="text-sm font-semibold tracking-tight">ClientOps</div>
-                        <div className="mt-1 text-xs text-slate-600">Internal dashboard</div>
+            <div className="sticky top-6 rounded-2xl border border-border/70 bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                <div className="px-2">
+                    <div className="text-sm font-semibold tracking-tight text-foreground">
+                        ClientOps
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                        Calm, simple client operations
                     </div>
                 </div>
 
                 <nav className="mt-4 space-y-1">
                     {nav.map((item) => {
                         const Icon = item.icon;
+                        const isActive =
+                            pathname === item.href ||
+                            (item.href !== "/dashboard" && pathname.startsWith(item.href));
+
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                className={cx(
+                                    "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition",
+                                    isActive
+                                        ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                                        : "text-muted-foreground hover:bg-card hover:text-foreground"
+                                )}
                             >
-                                <Icon className="h-4 w-4 text-slate-500" />
+                                <Icon
+                                    className={cx(
+                                        "h-4 w-4 transition",
+                                        isActive
+                                            ? "text-foreground"
+                                            : "text-muted-foreground group-hover:text-foreground"
+                                    )}
+                                />
                                 {item.label}
                             </Link>
                         );
                     })}
                 </nav>
 
-                <div className="mt-6 border-t border-slate-200 pt-3">
+                <div className="mt-6 border-t border-border/70 pt-3">
                     <Link
                         href="/dashboard/settings"
-                        className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                        className={cx(
+                            "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition",
+                            pathname.startsWith("/dashboard/settings")
+                                ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                                : "text-muted-foreground hover:bg-card hover:text-foreground"
+                        )}
                     >
-                        <Settings className="h-4 w-4 text-slate-500" />
+                        <Settings className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                         Settings
                     </Link>
                 </div>

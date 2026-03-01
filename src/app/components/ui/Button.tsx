@@ -13,18 +13,18 @@ type Props = {
 };
 
 function baseClasses() {
-    return "inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-slate-900/15";
+    return "inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-ring";
 }
 
 function variantClasses(variant: Variant) {
     switch (variant) {
         case "primary":
-            return "bg-slate-900 text-white hover:opacity-90";
+            return "bg-accent text-accent-foreground hover:opacity-90";
         case "secondary":
-            return "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50";
+            return "border border-border bg-card text-card-foreground hover:bg-surface";
         case "ghost":
         default:
-            return "text-slate-700 hover:bg-slate-100";
+            return "text-foreground hover:bg-surface-hover";
     }
 }
 

@@ -1,14 +1,16 @@
-import { Button } from "../ui/Button";
+"use client";
+
+import { Button } from "../../components/ui/Button";
 import { Search, Plus } from "lucide-react";
 
 export function Topbar() {
     return (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                <Search className="h-4 w-4 text-slate-500" />
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 text-sm text-foreground">
+                <Search className="h-4 w-4 text-muted-foreground" />
                 <input
                     placeholder="Search clients, projects, notes…"
-                    className="w-full bg-transparent outline-none placeholder:text-slate-400"
+                    className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
                 />
             </div>
 

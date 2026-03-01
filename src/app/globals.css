@@ -1,26 +1,71 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* Light: warm paper tone — easy on the eyes for long sessions */
+  --background: 250 249 247; /* warm cream */
+  --foreground: 41 37 36; /* stone-800 */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --muted: 120 113 108; /* stone-600 */
+  --muted-foreground: 120 113 108;
+
+  --card: 255 255 255;
+  --card-foreground: 41 37 36;
+
+  --border: 231 229 226; /* stone-300 */
+
+  --surface: 245 245 244; /* stone-100 */
+  --surface-hover: 231 229 228; /* stone-200 */
+
+  /* Teal: calm, professional, distinct from typical purple SaaS */
+  --accent: 13 148 136; /* teal-600 */
+  --accent-foreground: 255 255 255;
+
+  --ring: 13 148 136;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Dark: warm charcoal — not harsh black */
+    --background: 23 23 23; /* zinc-950, neutral dark */
+    --foreground: 250 250 250; /* zinc-50 */
+
+    --muted: 161 161 170; /* zinc-400 */
+    --muted-foreground: 161 161 170;
+
+    --card: 39 39 42; /* zinc-800 */
+    --card-foreground: 250 250 250;
+
+    --border: 63 63 70; /* zinc-700 */
+
+    --surface: 39 39 42; /* zinc-800 */
+    --surface-hover: 63 63 70; /* zinc-700 */
+
+    --accent: 45 212 191; /* teal-400 — pops on dark */
+    --accent-foreground: 9 9 11; /* zinc-950 */
+
+    --ring: 45 212 191;
   }
 }
 
+@theme inline {
+  --color-background: rgb(var(--background));
+  --color-foreground: rgb(var(--foreground));
+  --color-muted: rgb(var(--muted));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+  --color-card: rgb(var(--card));
+  --color-card-foreground: rgb(var(--card-foreground));
+  --color-border: rgb(var(--border));
+  --color-surface: rgb(var(--surface));
+  --color-surface-hover: rgb(var(--surface-hover));
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+  --color-ring: rgb(var(--ring));
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground));
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background: rgb(var(--background));
 }
