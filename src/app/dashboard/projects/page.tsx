@@ -251,7 +251,8 @@ export default function ProjectsPage() {
       <Drawer
         open={editorOpen}
         onClose={closeEditor}
-        title={isEdit ? "Edit project" : "New project"}
+        title={isEdit ? (editingProject?.name ?? "Edit project") : "New project"}
+        footer={null}
       >
         <ProjectEditor
           project={editorProject}
