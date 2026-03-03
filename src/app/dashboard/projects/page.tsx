@@ -1,52 +1,10 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
-
-type ProjectStatus = "Discovery" | "Build" | "Review" | "Live";
-type PricingType = "fixed" | "hourly" | "retainer";
-
-type Project = {
-  name: string;
-  client: string;
-  pricingType: PricingType;
-  amount: number; // local-only for now (later: switch to amountCents)
-  hoursInvested?: number; // optional
-  status: ProjectStatus;
-  due: string;
-  next: string;
-};
-
-const projects: Project[] = [
-  {
-    name: "ClientOps MVP",
-    client: "Internal",
-    pricingType: "fixed",
-    amount: 10000,
-    hoursInvested: 40,
-    status: "Build",
-    due: "Mar 15",
-    next: "Implement Clients table + detail",
-  },
-  {
-    name: "Portfolio Refresh",
-    client: "Chris Holland",
-    pricingType: "fixed",
-    amount: 500,
-    hoursInvested: 6,
-    status: "Live",
-    due: "—",
-    next: "Replace My Ledger with ClientOps",
-  },
-  {
-    name: "Oliver Site Refresh",
-    client: "Oliver",
-    pricingType: "hourly",
-    amount: 75, // hourly rate
-    hoursInvested: 8,
-    status: "Review",
-    due: "Mar 6",
-    next: "Review final copy + deploy",
-  },
-];
+import { Drawer } from "@/app/components/ui/Drawer";
+import { ProjectEditor, type Project, type ProjectStatus } from "@/app/components/projects/ProjectEditor";
 
 function formatMoney(n: number) {
   return n.toLocaleString(undefined, {
@@ -79,25 +37,109 @@ function StatusPill({ status }: { status: ProjectStatus }) {
           : "bg-surface text-muted-foreground";
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}
-    >
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>
       {status}
     </span>
   );
 }
 
-function EffectiveRateLine({ p }: { p: Project }) {
-  const r = effectiveRate(p);
-  if (!r) return null;
-  return (
-    <div className="mt-1 text-xs text-muted-foreground">
-      Effective rate: {formatMoney(r)}/hr
-    </div>
-  );
+function newProjectDraft(): Project {
+  return {
+    id: `p_${Math.random().toString(36).slice(2, 10)}`,
+    name: "",
+    client: "",
+    pricingType: "fixed",
+    amount: 0,
+    hoursInvested: undefined,
+    status: "Discovery",
+    due: "",
+    next: "",
+  };
 }
 
 export default function ProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([
+    {
+      id: "p_clientops_mvp",
+      name: "ClientOps MVP",
+      client: "Internal",
+      pricingType: "fixed",
+      amount: 10000,
+      hoursInvested: 40,
+      status: "Build",
+      due: "Mar 15",
+      next: "Implement Clients table + detail",
+    },
+    {
+      id: "p_portfolio_refresh",
+      name: "Portfolio Refresh",
+      client: "Chris Holland",
+      pricingType: "fixed",
+      amount: 500,
+      hoursInvested: 6,
+      status: "Live",
+      due: "—",
+      next: "Replace My Ledger with ClientOps",
+    },
+    {
+      id: "p_oliver_refresh",
+      name: "Oliver Site Refresh",
+      client: "Oliver",
+      pricingType: "hourly",
+      amount: 75,
+      hoursInvested: 8,
+      status: "Review",
+      due: "Mar 6",
+      next: "Review final copy + deploy",
+    },
+  ]);
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const editingProject = useMemo(() => {
+    if (!editingId) return null;
+    return projects.find((p) => p.id === editingId) ?? null;
+  }, [projects, editingId]);
+
+  const editorProject = editingProject ?? newProjectDraft();
+  const isEdit = Boolean(editingProject);
+
+  function openNew() {
+    setEditingId(null);
+    setEditorOpen(true);
+  }
+
+  function openEdit(id: string) {
+    setEditingId(id);
+    setEditorOpen(true);
+  }
+
+  function closeEditor() {
+    setEditorOpen(false);
+  }
+
+  function handleSave(patch: Partial<Project>) {
+    if (isEdit && editingProject) {
+      setProjects((prev) =>
+        prev.map((p) => (p.id === editingProject.id ? { ...p, ...patch } : p))
+      );
+      setEditorOpen(false);
+      return;
+    }
+
+    // Create
+    const created: Project = {
+      ...editorProject,
+      ...patch,
+      // Ensure id stays stable for this create action
+      id: editorProject.id,
+    };
+
+    setProjects((prev) => [created, ...prev]);
+    setEditorOpen(false);
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -106,19 +148,17 @@ export default function ProjectsPage() {
             <span className="h-2 w-2 rounded-full bg-accent/70" />
             Projects
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Projects
-          </h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Track delivery, milestones, and due dates.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button href="#" variant="secondary">
+          <Button variant="secondary" onClick={() => {}}>
             Filters
           </Button>
-          <Button href="#" variant="primary">
+          <Button variant="primary" onClick={() => openNew()}>
             New project
           </Button>
         </div>
@@ -127,25 +167,33 @@ export default function ProjectsPage() {
       <Card className="p-0">
         {/* Mobile: card list */}
         <div className="space-y-0 md:hidden">
-          {projects.map((p) => (
-            <div
-              key={p.name}
-              className="border-t border-border/70 p-4 first:border-t-0"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span className="font-medium text-foreground">{p.name}</span>
-                <StatusPill status={p.status} />
-              </div>
-
-              <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-                <span>Client: {p.client}</span>
-                <span>Project Fee: {formatPricing(p)}</span>
-                <span>Due: {p.due}</span>
-                <span>{p.next}</span>
-                <EffectiveRateLine p={p} />
-              </div>
-            </div>
-          ))}
+          {projects.map((p) => {
+            const r = effectiveRate(p);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => openEdit(p.id)}
+                className="w-full text-left border-t border-border/70 p-4 first:border-t-0 hover:bg-surface/60 transition"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="font-medium text-foreground">{p.name}</span>
+                  <StatusPill status={p.status} />
+                </div>
+                <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span>Client: {p.client}</span>
+                  <span>Pricing: {formatPricing(p)}</span>
+                  <span>Due: {p.due}</span>
+                  <span>{p.next}</span>
+                  {r ? (
+                    <span className="text-xs text-muted-foreground">
+                      Effective rate: {formatMoney(r)}/hr
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {/* Desktop: table */}
@@ -162,26 +210,32 @@ export default function ProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {projects.map((p) => (
-                <tr
-                  key={p.name}
-                  className="border-t border-border/70 hover:bg-surface/60 transition"
-                >
-                  <td className="px-5 py-4 font-medium">{p.name}</td>
-                  <td className="px-5 py-4 text-muted-foreground">{p.client}</td>
-                  <td className="px-5 py-4 text-muted-foreground">
-                    {formatPricing(p)}
-                  </td>
-                  <td className="px-5 py-4">
-                    <StatusPill status={p.status} />
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">{p.due}</td>
-                  <td className="px-5 py-4">
-                    <div>{p.next}</div>
-                    <EffectiveRateLine p={p} />
-                  </td>
-                </tr>
-              ))}
+              {projects.map((p) => {
+                const r = effectiveRate(p);
+                return (
+                  <tr
+                    key={p.id}
+                    onClick={() => openEdit(p.id)}
+                    className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
+                  >
+                    <td className="px-5 py-4 font-medium">{p.name}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{p.client}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{formatPricing(p)}</td>
+                    <td className="px-5 py-4">
+                      <StatusPill status={p.status} />
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">{p.due}</td>
+                    <td className="px-5 py-4">
+                      <div>{p.next}</div>
+                      {r ? (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Effective rate: {formatMoney(r)}/hr
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -193,6 +247,18 @@ export default function ProjectsPage() {
           Add project detail with tasks, notes, and linked client.
         </p>
       </Card>
+
+      <Drawer
+        open={editorOpen}
+        onClose={closeEditor}
+        title={isEdit ? "Edit project" : "New project"}
+      >
+        <ProjectEditor
+          project={editorProject}
+          onCancel={closeEditor}
+          onSave={handleSave}
+        />
+      </Drawer>
     </div>
   );
 }

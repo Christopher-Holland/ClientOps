@@ -16,7 +16,7 @@ const nav = [
     { href: "/dashboard/clients", label: "Clients", icon: Users },
     { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
     { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-    { href: "/dashbaord/revenue", label: "Revenue", icon: DollarSign },
+    { href: "/dashboard/revenue", label: "Revenue", icon: DollarSign },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
