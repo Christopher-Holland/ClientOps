@@ -8,6 +8,7 @@ import {
     FolderKanban,
     CreditCard,
     Settings,
+    DollarSign,
 } from "lucide-react";
 
 const nav = [
@@ -15,6 +16,7 @@ const nav = [
     { href: "/dashboard/clients", label: "Clients", icon: Users },
     { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
     { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+    { href: "/dashboard/revenue", label: "Revenue", icon: DollarSign },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
