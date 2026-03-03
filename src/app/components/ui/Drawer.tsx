@@ -70,8 +70,8 @@ export function Drawer({
                         </button>
                     </div>
 
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
+                    {/* Content: scrollable, with bottom padding on mobile so buttons clear the MobileNav */}
+                    <div className="flex-1 overflow-y-auto px-5 py-5 pb-24 lg:pb-5">{children}</div>
 
                     {/* Footer */}
                     {footer ? (
