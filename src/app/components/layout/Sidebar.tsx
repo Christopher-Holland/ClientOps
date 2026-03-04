@@ -17,7 +17,7 @@ const nav = [
     { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
     { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
     { href: "/dashboard/revenue", label: "Revenue", icon: DollarSign },
-    { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    
 ];
 
 function cx(...classes: Array<string | false | null | undefined>) {
