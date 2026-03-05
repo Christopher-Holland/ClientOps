@@ -1,18 +1,12 @@
+// app/(whatever)/revenue/page.tsx
 "use client";
 
 import { useMemo, useState } from "react";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
-import {
-    RevenueEditor,
-    type RevenueNote,
-} from "@/app/components/revenue/RevenueEditor";
-import {
-    ProjectEditor,
-    type Project,
-    type ProjectStatus,
-} from "@/app/components/projects/ProjectEditor";
+import { RevenueEditor, type RevenueNote } from "@/app/components/revenue/RevenueEditor";
+import { ProjectEditor, type Project, type ProjectStatus } from "@/app/components/projects/ProjectEditor";
 
 // Initial project data (swap to shared store later)
 const initialProjects: Project[] = [
@@ -112,26 +106,19 @@ function calcRevenueSnapshot(items: Project[]) {
         .filter((p) => p.pricingType === "hourly")
         .reduce((sum, p) => sum + p.amount * (p.hoursInvested ?? 0), 0);
 
-    // Simple "Projected Monthly" logic for v0:
-    // MRR + (hourly * hoursInvested) + (fixed fees for non-live work)
     const fixedNonLive = items
         .filter((p) => p.pricingType === "fixed" && p.status !== "Live")
         .reduce((sum, p) => sum + p.amount, 0);
 
     const projectedMonthly = mrr + hourlyProjected + fixedNonLive;
 
-    // Weighted average effective rate across fixed projects with hours
     const fixedWithHours = items.filter(
         (p) => p.pricingType === "fixed" && (p.hoursInvested ?? 0) > 0
     );
 
     const totalFixedDollars = fixedWithHours.reduce((sum, p) => sum + p.amount, 0);
-    const totalHours = fixedWithHours.reduce(
-        (sum, p) => sum + (p.hoursInvested ?? 0),
-        0
-    );
-    const avgEffectiveRate =
-        totalHours > 0 ? totalFixedDollars / totalHours : null;
+    const totalHours = fixedWithHours.reduce((sum, p) => sum + (p.hoursInvested ?? 0), 0);
+    const avgEffectiveRate = totalHours > 0 ? totalFixedDollars / totalHours : null;
 
     return {
         mrr,
@@ -167,14 +154,14 @@ export default function RevenuePage() {
     const [projects, setProjects] = useState<Project[]>(initialProjects);
     const [notes, setNotes] = useState<RevenueNote[]>([]);
 
-    const [editorOpen, setEditorOpen] = useState(false);
+    // Revenue note drawer
+    const [noteEditorOpen, setNoteEditorOpen] = useState(false);
     const [editingNote, setEditingNote] = useState<RevenueNote | null>(null);
+    const [draftNote, setDraftNote] = useState<RevenueNote | null>(null);
 
+    // Project drawer
     const [projectEditorOpen, setProjectEditorOpen] = useState(false);
     const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-
-    const editorNote = editingNote ?? newRevenueNoteDraft();
-    const isEditNote = Boolean(editingNote);
 
     const editingProject = useMemo(
         () => projects.find((p) => p.id === editingProjectId) ?? null,
@@ -182,21 +169,42 @@ export default function RevenuePage() {
     );
     const isEditProject = Boolean(editingProject);
 
+    const isEditNote = Boolean(editingNote);
+    const editorNote = editingNote ?? draftNote ?? newRevenueNoteDraft(); // safety fallback
+
     const snap = calcRevenueSnapshot(projects);
 
-    function openNew() {
+    function openNewNote() {
         setEditingNote(null);
-        setEditorOpen(true);
+        setDraftNote(newRevenueNoteDraft());
+        setNoteEditorOpen(true);
     }
 
     function openEditNote(note: RevenueNote) {
+        setDraftNote(null);
         setEditingNote(note);
-        setEditorOpen(true);
+        setNoteEditorOpen(true);
     }
 
-    function closeEditor() {
-        setEditorOpen(false);
+    function closeNoteEditor() {
+        setNoteEditorOpen(false);
         setEditingNote(null);
+        setDraftNote(null);
+    }
+
+    function handleNoteSave(patch: Partial<RevenueNote>) {
+        if (isEditNote && editingNote) {
+            setNotes((prev) => prev.map((n) => (n.id === editingNote.id ? { ...n, ...patch } : n)));
+        } else {
+            const base = draftNote ?? editorNote;
+            setNotes((prev) => [{ ...base, ...patch }, ...prev]);
+        }
+        closeNoteEditor();
+    }
+
+    function handleNoteDelete(id: string) {
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+        closeNoteEditor();
     }
 
     function openEditProject(project: Project) {
@@ -209,26 +217,9 @@ export default function RevenuePage() {
         setEditingProjectId(null);
     }
 
-    function handleSave(patch: Partial<RevenueNote>) {
-        if (isEditNote && editingNote) {
-            setNotes((prev) =>
-                prev.map((n) =>
-                    n.id === editingNote.id ? { ...n, ...patch } : n
-                )
-            );
-        } else {
-            setNotes((prev) => [{ ...editorNote, ...patch }, ...prev]);
-        }
-        closeEditor();
-    }
-
     function handleProjectSave(patch: Partial<Project>) {
         if (isEditProject && editingProject) {
-            setProjects((prev) =>
-                prev.map((p) =>
-                    p.id === editingProject.id ? { ...p, ...patch } : p
-                )
-            );
+            setProjects((prev) => prev.map((p) => (p.id === editingProject.id ? { ...p, ...patch } : p)));
         }
         closeProjectEditor();
     }
@@ -248,10 +239,10 @@ export default function RevenuePage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="secondary" onClick={() => {}}>
+                    <Button variant="secondary" onClick={() => { }}>
                         Date range
                     </Button>
-                    <Button variant="primary" onClick={() => openNew()}>
+                    <Button variant="primary" onClick={openNewNote}>
                         Add revenue note
                     </Button>
                 </div>
@@ -261,57 +252,39 @@ export default function RevenuePage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card className="p-5">
                     <div className="text-xs font-medium text-muted-foreground">MRR</div>
-                    <div className="mt-2 text-2xl font-semibold tracking-tight">
-                        {formatMoney(snap.mrr)}
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Retainers / month.
-                    </p>
+                    <div className="mt-2 text-2xl font-semibold tracking-tight">{formatMoney(snap.mrr)}</div>
+                    <p className="mt-1 text-sm text-muted-foreground">Retainers / month.</p>
                 </Card>
 
                 <Card className="p-5">
-                    <div className="text-xs font-medium text-muted-foreground">
-                        Projected this month
-                    </div>
+                    <div className="text-xs font-medium text-muted-foreground">Projected this month</div>
                     <div className="mt-2 text-2xl font-semibold tracking-tight">
                         {formatMoney(snap.projectedMonthly)}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        MRR + hourly + active fixed work.
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">MRR + hourly + active fixed work.</p>
                 </Card>
 
                 <Card className="p-5">
-                    <div className="text-xs font-medium text-muted-foreground">
-                        Hourly projected
-                    </div>
+                    <div className="text-xs font-medium text-muted-foreground">Hourly projected</div>
                     <div className="mt-2 text-2xl font-semibold tracking-tight">
                         {formatMoney(snap.hourlyProjected)}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Based on hours invested (v0).
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">Based on hours invested (v0).</p>
                 </Card>
 
                 <Card className="p-5">
-                    <div className="text-xs font-medium text-muted-foreground">
-                        Avg effective rate
-                    </div>
+                    <div className="text-xs font-medium text-muted-foreground">Avg effective rate</div>
                     <div className="mt-2 text-2xl font-semibold tracking-tight">
                         {snap.avgEffectiveRate ? `${formatMoney(snap.avgEffectiveRate)}/hr` : "—"}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Fixed-fee projects with hours.
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">Fixed-fee projects with hours.</p>
                 </Card>
             </div>
 
             {/* Breakdown */}
             <Card className="p-0">
                 <div className="border-b border-border/70 px-5 py-4">
-                    <div className="text-sm font-semibold tracking-tight">
-                        Revenue by project
-                    </div>
+                    <div className="text-sm font-semibold tracking-tight">Revenue by project</div>
                     <p className="mt-1 text-sm text-muted-foreground">
                         This is internal tracking — Billing will handle invoices and payments.
                     </p>
@@ -340,12 +313,8 @@ export default function RevenuePage() {
                                     >
                                         <td className="px-5 py-4 font-medium">{p.name}</td>
                                         <td className="px-5 py-4 text-muted-foreground">{p.client}</td>
-                                        <td className="px-5 py-4 text-muted-foreground">
-                                            {formatPricing(p)}
-                                        </td>
-                                        <td className="px-5 py-4 text-muted-foreground">
-                                            {p.hoursInvested ?? "—"}
-                                        </td>
+                                        <td className="px-5 py-4 text-muted-foreground">{formatPricing(p)}</td>
+                                        <td className="px-5 py-4 text-muted-foreground">{p.hoursInvested ?? "—"}</td>
                                         <td className="px-5 py-4 text-muted-foreground">
                                             {er ? `${formatMoney(er)}/hr` : "—"}
                                         </td>
@@ -359,7 +328,7 @@ export default function RevenuePage() {
                     </table>
                 </div>
 
-                {/* Mobile list */}
+                {/* Mobile */}
                 <div className="space-y-0 md:hidden">
                     {projects.map((p) => {
                         const er = effectiveRate(p);
@@ -389,14 +358,12 @@ export default function RevenuePage() {
             {notes.length > 0 ? (
                 <Card className="p-0">
                     <div className="border-b border-border/70 px-5 py-4">
-                        <div className="text-sm font-semibold tracking-tight">
-                            Revenue notes
-                        </div>
+                        <div className="text-sm font-semibold tracking-tight">Revenue notes</div>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Revenue entries with project and pricing details.
                         </p>
                     </div>
-                    {/* Desktop: table */}
+
                     <div className="hidden overflow-x-auto md:block">
                         <table className="w-full text-sm">
                             <thead className="bg-surface">
@@ -415,27 +382,19 @@ export default function RevenuePage() {
                                         onClick={() => openEditNote(n)}
                                         className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
                                     >
-                                        <td className="px-5 py-4 font-medium">
-                                            {n.name || "Untitled"}
-                                        </td>
-                                        <td className="px-5 py-4 text-muted-foreground">
-                                            {n.client || "—"}
-                                        </td>
+                                        <td className="px-5 py-4 font-medium">{n.name || "Untitled"}</td>
+                                        <td className="px-5 py-4 text-muted-foreground">{n.client || "—"}</td>
                                         <td className="px-5 py-4">
                                             <StatusPill status={n.status} />
                                         </td>
-                                        <td className="px-5 py-4 text-muted-foreground">
-                                            {formatNotePricing(n)}
-                                        </td>
-                                        <td className="px-5 py-4 text-muted-foreground">
-                                            {n.date}
-                                        </td>
+                                        <td className="px-5 py-4 text-muted-foreground">{formatNotePricing(n)}</td>
+                                        <td className="px-5 py-4 text-muted-foreground">{n.date}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    {/* Mobile: card list */}
+
                     <div className="space-y-0 md:hidden">
                         {notes.map((n) => (
                             <button
@@ -445,11 +404,9 @@ export default function RevenuePage() {
                                 className="flex w-full items-center justify-between gap-4 border-t border-border/70 p-4 text-left first:border-t-0 hover:bg-surface/60 transition"
                             >
                                 <div>
-                                    <div className="font-medium text-foreground">
-                                        {n.name || "Untitled"}
-                                    </div>
+                                    <div className="font-medium text-foreground">{n.name || "Untitled"}</div>
                                     <div className="mt-1 text-sm text-muted-foreground">
-                                        {n.client} · {formatNotePricing(n)} · {n.date}
+                                        {(n.client || "—") + " · " + formatNotePricing(n) + " · " + n.date}
                                     </div>
                                 </div>
                                 <StatusPill status={n.status} />
@@ -466,31 +423,43 @@ export default function RevenuePage() {
                 </p>
             </Card>
 
+            {/* Revenue Note Drawer */}
             <Drawer
-                open={editorOpen}
-                onClose={closeEditor}
-                title={isEditNote ? (editingNote?.name ?? "Edit note") : "New revenue note"}
-                footer={null}
+                open={noteEditorOpen}
+                onClose={closeNoteEditor}
+                title={isEditNote ? (editingNote?.name?.trim() || "Edit note") : "New revenue note"}
+                footer={
+                    isEditNote && editingNote ? (
+                        <div className="flex items-center justify-between">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="text-red-600 hover:bg-red-100 hover:text-red-700"
+                                onClick={() => handleNoteDelete(editingNote.id)}
+                            >
+                                Delete
+                            </Button>
+                            <div />
+                        </div>
+                    ) : null
+                }
             >
                 <RevenueEditor
                     note={editorNote}
-                    onCancel={closeEditor}
-                    onSave={handleSave}
+                    onCancel={closeNoteEditor}
+                    onSave={handleNoteSave}
                 />
             </Drawer>
 
+            {/* Project Drawer */}
             <Drawer
                 open={projectEditorOpen}
                 onClose={closeProjectEditor}
-                title={isEditProject ? (editingProject?.name ?? "Edit project") : "Project"}
+                title={isEditProject ? (editingProject?.name?.trim() || "Edit project") : "Project"}
                 footer={null}
             >
                 {editingProject ? (
-                    <ProjectEditor
-                        project={editingProject}
-                        onCancel={closeProjectEditor}
-                        onSave={handleProjectSave}
-                    />
+                    <ProjectEditor project={editingProject} onCancel={closeProjectEditor} onSave={handleProjectSave} />
                 ) : null}
             </Drawer>
         </div>

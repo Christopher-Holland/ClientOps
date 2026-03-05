@@ -34,6 +34,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [isNewlyCreated, setIsNewlyCreated] = useState(false);
 
   useEffect(() => {
     const loaded = loadClients();
@@ -61,12 +62,20 @@ export default function ClientsPage() {
     const next = [c, ...clients];
     persist(next);
     setSelectedId(c.id);
+    setIsNewlyCreated(true);
     setOpen(true);
   }
 
   function onRowClick(id: string) {
     setSelectedId(id);
+    setIsNewlyCreated(false);
     setOpen(true);
+  }
+
+  function handleDelete(id: string) {
+    persist(clients.filter((c) => c.id !== id));
+    setOpen(false);
+    setSelectedId(null);
   }
 
   function onSave(patch: Partial<Client>) {
@@ -142,7 +151,7 @@ export default function ClientsPage() {
 
       <Drawer
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { setOpen(false); setIsNewlyCreated(false); }}
         title={selected ? selected.name : "Client"}
         footer={null}
       >
@@ -150,6 +159,7 @@ export default function ClientsPage() {
           <ClientEditor
             client={selected}
             onCancel={() => setOpen(false)}
+            onDelete={!isNewlyCreated ? handleDelete : undefined}
             onSave={onSave}
           />
         ) : (

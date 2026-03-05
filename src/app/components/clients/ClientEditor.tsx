@@ -119,10 +119,12 @@ export function ClientEditor({
     client,
     onSave,
     onCancel,
+    onDelete,
 }: {
     client: Client;
     onSave: (patch: Partial<Client>) => void;
     onCancel: () => void;
+    onDelete?: (id: string) => void;
 }) {
     const [name, setName] = useState(client.name);
     const [status, setStatus] = useState<ClientStatus>(client.status);
@@ -196,6 +198,15 @@ export function ClientEditor({
             </div>
 
             <div className="flex flex-wrap gap-2">
+                {onDelete ? (
+                    <Button
+                        onClick={() => onDelete(client.id)}
+                        variant="secondary"
+                        className="text-red-600 hover:bg-red-100 hover:text-red-700"
+                    >
+                        Delete
+                    </Button>
+                ) : null}
                 <Button onClick={onCancel} variant="secondary">
                     Cancel
                 </Button>

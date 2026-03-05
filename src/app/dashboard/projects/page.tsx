@@ -117,6 +117,12 @@ export default function ProjectsPage() {
 
   function closeEditor() {
     setEditorOpen(false);
+    setEditingId(null);
+  }
+
+  function handleDelete(id: string) {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    closeEditor();
   }
 
   function handleSave(patch: Partial<Project>) {
@@ -257,6 +263,7 @@ export default function ProjectsPage() {
         <ProjectEditor
           project={editorProject}
           onCancel={closeEditor}
+          onDelete={isEdit ? handleDelete : undefined}
           onSave={handleSave}
         />
       </Drawer>

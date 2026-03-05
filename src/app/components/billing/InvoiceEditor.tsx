@@ -119,10 +119,12 @@ export function InvoiceEditor({
     invoice,
     onSave,
     onCancel,
+    onDelete,
 }: {
     invoice: Invoice;
     onSave: (patch: Partial<Invoice>) => void;
     onCancel: () => void;
+    onDelete?: (id: string) => void;
 }) {
     const [client, setClient] = useState(invoice.client ?? "");
     const [project, setProject] = useState(invoice.project ?? "");
@@ -261,6 +263,15 @@ export function InvoiceEditor({
             </div>
 
             <div className="flex flex-wrap gap-2">
+                {onDelete ? (
+                    <Button
+                        onClick={() => onDelete(invoice.id)}
+                        variant="secondary"
+                        className="text-red-600 hover:bg-red-100 hover:text-red-700"
+                    >
+                        Delete
+                    </Button>
+                ) : null}
                 <Button onClick={onCancel} variant="secondary">
                     Cancel
                 </Button>

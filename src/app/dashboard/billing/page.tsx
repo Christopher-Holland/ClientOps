@@ -164,6 +164,12 @@ export default function BillingPage() {
 
   function closeEditor() {
     setEditorOpen(false);
+    setEditingId(null);
+  }
+
+  function handleDelete(id: string) {
+    setInvoices((prev) => prev.filter((i) => i.id !== id));
+    closeEditor();
   }
 
   function handleSave(patch: Partial<Invoice>) {
@@ -364,7 +370,12 @@ export default function BillingPage() {
         onClose={closeEditor}
         title={isEdit ? "Edit invoice" : "New invoice"}
       >
-        <InvoiceEditor invoice={editorInvoice} onCancel={closeEditor} onSave={handleSave} />
+        <InvoiceEditor
+          invoice={editorInvoice}
+          onCancel={closeEditor}
+          onDelete={isEdit ? handleDelete : undefined}
+          onSave={handleSave}
+        />
       </Drawer>
     </div>
   );

@@ -133,10 +133,12 @@ export function ProjectEditor({
     project,
     onSave,
     onCancel,
+    onDelete,
 }: {
     project: Project;
     onSave: (patch: Partial<Project>) => void;
     onCancel: () => void;
+    onDelete?: (id: string) => void;
 }) {
     const [name, setName] = useState(project.name);
     const [client, setClient] = useState(project.client);
@@ -304,6 +306,15 @@ export function ProjectEditor({
             </div>
 
             <div className="flex flex-wrap gap-2">
+                {onDelete ? (
+                    <Button
+                        onClick={() => onDelete(project.id)}
+                        variant="secondary"
+                        className="text-red-600 hover:bg-red-100 hover:text-red-700"
+                    >
+                        Delete
+                    </Button>
+                ) : null}
                 <Button onClick={onCancel} variant="secondary">
                     Cancel
                 </Button>
