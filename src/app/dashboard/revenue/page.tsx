@@ -1,23 +1,23 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
+import { Drawer } from "@/app/components/ui/Drawer";
+import {
+    RevenueEditor,
+    type RevenueNote,
+} from "@/app/components/revenue/RevenueEditor";
+import {
+    ProjectEditor,
+    type Project,
+    type ProjectStatus,
+} from "@/app/components/projects/ProjectEditor";
 
-type ProjectStatus = "Discovery" | "Build" | "Review" | "Live";
-type PricingType = "fixed" | "hourly" | "retainer";
-
-type Project = {
-    name: string;
-    client: string;
-    pricingType: PricingType;
-    amount: number; // fixed = total fee, hourly = hourly rate, retainer = monthly retainer
-    hoursInvested?: number; // optional
-    status: ProjectStatus;
-    due: string;
-    next: string;
-};
-
-// Local-only mock data (swap to shared store later)
-const projects: Project[] = [
+// Initial project data (swap to shared store later)
+const initialProjects: Project[] = [
     {
+        id: "p_clientops_mvp",
         name: "ClientOps MVP",
         client: "Internal",
         pricingType: "fixed",
@@ -28,6 +28,7 @@ const projects: Project[] = [
         next: "Implement Clients table + detail",
     },
     {
+        id: "p_portfolio_refresh",
         name: "Portfolio Refresh",
         client: "Chris Holland",
         pricingType: "fixed",
@@ -38,6 +39,7 @@ const projects: Project[] = [
         next: "Replace My Ledger with ClientOps",
     },
     {
+        id: "p_oliver_refresh",
         name: "Oliver Site Refresh",
         client: "Oliver",
         pricingType: "hourly",
@@ -48,6 +50,7 @@ const projects: Project[] = [
         next: "Review final copy + deploy",
     },
     {
+        id: "p_maintenance_retainer",
         name: "Maintenance Retainer",
         client: "ACME Co.",
         pricingType: "retainer",
@@ -65,6 +68,23 @@ function formatMoney(n: number, { decimals = 0 }: { decimals?: number } = {}) {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
     });
+}
+
+function StatusPill({ status }: { status: ProjectStatus }) {
+    const cls =
+        status === "Live"
+            ? "bg-accent/15 text-foreground"
+            : status === "Build"
+                ? "bg-surface text-foreground"
+                : status === "Review"
+                    ? "bg-surface text-foreground"
+                    : "bg-surface text-muted-foreground";
+
+    return (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>
+            {status}
+        </span>
+    );
 }
 
 function formatPricing(p: Project) {
@@ -123,8 +143,95 @@ function calcRevenueSnapshot(items: Project[]) {
     };
 }
 
+function newRevenueNoteDraft(): RevenueNote {
+    return {
+        id: `rn_${Math.random().toString(36).slice(2, 10)}`,
+        name: "",
+        client: "",
+        status: "Discovery",
+        pricingType: "fixed",
+        amount: 0,
+        hoursInvested: undefined,
+        date: new Date().toISOString().slice(0, 10),
+        notes: "",
+    };
+}
+
+function formatNotePricing(n: RevenueNote) {
+    if (n.pricingType === "fixed") return formatMoney(n.amount);
+    if (n.pricingType === "hourly") return `${formatMoney(n.amount)}/hr`;
+    return `${formatMoney(n.amount)}/mo`;
+}
+
 export default function RevenuePage() {
+    const [projects, setProjects] = useState<Project[]>(initialProjects);
+    const [notes, setNotes] = useState<RevenueNote[]>([]);
+
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [editingNote, setEditingNote] = useState<RevenueNote | null>(null);
+
+    const [projectEditorOpen, setProjectEditorOpen] = useState(false);
+    const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+
+    const editorNote = editingNote ?? newRevenueNoteDraft();
+    const isEditNote = Boolean(editingNote);
+
+    const editingProject = useMemo(
+        () => projects.find((p) => p.id === editingProjectId) ?? null,
+        [projects, editingProjectId]
+    );
+    const isEditProject = Boolean(editingProject);
+
     const snap = calcRevenueSnapshot(projects);
+
+    function openNew() {
+        setEditingNote(null);
+        setEditorOpen(true);
+    }
+
+    function openEditNote(note: RevenueNote) {
+        setEditingNote(note);
+        setEditorOpen(true);
+    }
+
+    function closeEditor() {
+        setEditorOpen(false);
+        setEditingNote(null);
+    }
+
+    function openEditProject(project: Project) {
+        setEditingProjectId(project.id);
+        setProjectEditorOpen(true);
+    }
+
+    function closeProjectEditor() {
+        setProjectEditorOpen(false);
+        setEditingProjectId(null);
+    }
+
+    function handleSave(patch: Partial<RevenueNote>) {
+        if (isEditNote && editingNote) {
+            setNotes((prev) =>
+                prev.map((n) =>
+                    n.id === editingNote.id ? { ...n, ...patch } : n
+                )
+            );
+        } else {
+            setNotes((prev) => [{ ...editorNote, ...patch }, ...prev]);
+        }
+        closeEditor();
+    }
+
+    function handleProjectSave(patch: Partial<Project>) {
+        if (isEditProject && editingProject) {
+            setProjects((prev) =>
+                prev.map((p) =>
+                    p.id === editingProject.id ? { ...p, ...patch } : p
+                )
+            );
+        }
+        closeProjectEditor();
+    }
 
     return (
         <div className="space-y-8">
@@ -141,10 +248,10 @@ export default function RevenuePage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button href="#" variant="secondary">
+                    <Button variant="secondary" onClick={() => {}}>
                         Date range
                     </Button>
-                    <Button href="#" variant="primary">
+                    <Button variant="primary" onClick={() => openNew()}>
                         Add revenue note
                     </Button>
                 </div>
@@ -227,8 +334,9 @@ export default function RevenuePage() {
                                 const er = effectiveRate(p);
                                 return (
                                     <tr
-                                        key={p.name}
-                                        className="border-t border-border/70 hover:bg-surface/60 transition"
+                                        key={p.id}
+                                        onClick={() => openEditProject(p)}
+                                        className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
                                     >
                                         <td className="px-5 py-4 font-medium">{p.name}</td>
                                         <td className="px-5 py-4 text-muted-foreground">{p.client}</td>
@@ -241,7 +349,9 @@ export default function RevenuePage() {
                                         <td className="px-5 py-4 text-muted-foreground">
                                             {er ? `${formatMoney(er)}/hr` : "—"}
                                         </td>
-                                        <td className="px-5 py-4 text-muted-foreground">{p.status}</td>
+                                        <td className="px-5 py-4">
+                                            <StatusPill status={p.status} />
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -254,13 +364,15 @@ export default function RevenuePage() {
                     {projects.map((p) => {
                         const er = effectiveRate(p);
                         return (
-                            <div
-                                key={p.name}
-                                className="border-t border-border/70 p-4 first:border-t-0"
+                            <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => openEditProject(p)}
+                                className="w-full text-left border-t border-border/70 p-4 first:border-t-0 hover:bg-surface/60 transition"
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <span className="font-medium text-foreground">{p.name}</span>
-                                    <span className="text-xs text-muted-foreground">{p.status}</span>
+                                    <StatusPill status={p.status} />
                                 </div>
                                 <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
                                     <span>Client: {p.client}</span>
@@ -268,11 +380,84 @@ export default function RevenuePage() {
                                     <span>Hours: {p.hoursInvested ?? "—"}</span>
                                     <span>Effective rate: {er ? `${formatMoney(er)}/hr` : "—"}</span>
                                 </div>
-                            </div>
+                            </button>
                         );
                     })}
                 </div>
             </Card>
+
+            {notes.length > 0 ? (
+                <Card className="p-0">
+                    <div className="border-b border-border/70 px-5 py-4">
+                        <div className="text-sm font-semibold tracking-tight">
+                            Revenue notes
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Revenue entries with project and pricing details.
+                        </p>
+                    </div>
+                    {/* Desktop: table */}
+                    <div className="hidden overflow-x-auto md:block">
+                        <table className="w-full text-sm">
+                            <thead className="bg-surface">
+                                <tr className="text-left text-xs font-medium text-muted-foreground">
+                                    <th className="px-5 py-3">Project</th>
+                                    <th className="px-5 py-3">Client</th>
+                                    <th className="px-5 py-3">Status</th>
+                                    <th className="px-5 py-3">Pricing</th>
+                                    <th className="px-5 py-3">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {notes.map((n) => (
+                                    <tr
+                                        key={n.id}
+                                        onClick={() => openEditNote(n)}
+                                        className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
+                                    >
+                                        <td className="px-5 py-4 font-medium">
+                                            {n.name || "Untitled"}
+                                        </td>
+                                        <td className="px-5 py-4 text-muted-foreground">
+                                            {n.client || "—"}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            <StatusPill status={n.status} />
+                                        </td>
+                                        <td className="px-5 py-4 text-muted-foreground">
+                                            {formatNotePricing(n)}
+                                        </td>
+                                        <td className="px-5 py-4 text-muted-foreground">
+                                            {n.date}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {/* Mobile: card list */}
+                    <div className="space-y-0 md:hidden">
+                        {notes.map((n) => (
+                            <button
+                                key={n.id}
+                                type="button"
+                                onClick={() => openEditNote(n)}
+                                className="flex w-full items-center justify-between gap-4 border-t border-border/70 p-4 text-left first:border-t-0 hover:bg-surface/60 transition"
+                            >
+                                <div>
+                                    <div className="font-medium text-foreground">
+                                        {n.name || "Untitled"}
+                                    </div>
+                                    <div className="mt-1 text-sm text-muted-foreground">
+                                        {n.client} · {formatNotePricing(n)} · {n.date}
+                                    </div>
+                                </div>
+                                <StatusPill status={n.status} />
+                            </button>
+                        ))}
+                    </div>
+                </Card>
+            ) : null}
 
             <Card>
                 <div className="text-sm font-semibold tracking-tight">Next step</div>
@@ -280,6 +465,34 @@ export default function RevenuePage() {
                     When Billing ships, we’ll add “Collected” vs “Outstanding” and tie revenue to invoices.
                 </p>
             </Card>
+
+            <Drawer
+                open={editorOpen}
+                onClose={closeEditor}
+                title={isEditNote ? (editingNote?.name ?? "Edit note") : "New revenue note"}
+                footer={null}
+            >
+                <RevenueEditor
+                    note={editorNote}
+                    onCancel={closeEditor}
+                    onSave={handleSave}
+                />
+            </Drawer>
+
+            <Drawer
+                open={projectEditorOpen}
+                onClose={closeProjectEditor}
+                title={isEditProject ? (editingProject?.name ?? "Edit project") : "Project"}
+                footer={null}
+            >
+                {editingProject ? (
+                    <ProjectEditor
+                        project={editingProject}
+                        onCancel={closeProjectEditor}
+                        onSave={handleProjectSave}
+                    />
+                ) : null}
+            </Drawer>
         </div>
     );
 }
