@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -31,10 +32,32 @@ function StatusPill({ status }: { status: ClientStatus }) {
 }
 
 export default function ClientsPage() {
+  const searchParams = useSearchParams();
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [isNewlyCreated, setIsNewlyCreated] = useState(false);
+  const hasOpenedFromParam = useRef(false);
+
+  const onNewClient = useCallback(() => {
+    const c = createClient({ name: "New client", status: "Lead" });
+    setClients((prev) => {
+      const next = [c, ...prev];
+      saveClients(next);
+      return next;
+    });
+    setSelectedId(c.id);
+    setIsNewlyCreated(true);
+    setOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "1" && !hasOpenedFromParam.current) {
+      hasOpenedFromParam.current = true;
+      onNewClient();
+      window.history.replaceState({}, "", "/dashboard/clients");
+    }
+  }, [searchParams, onNewClient]);
 
   useEffect(() => {
     const loaded = loadClients();
@@ -55,15 +78,6 @@ export default function ClientsPage() {
   function persist(next: Client[]) {
     setClients(next);
     saveClients(next);
-  }
-
-  function onNewClient() {
-    const c = createClient({ name: "New client", status: "Lead" });
-    const next = [c, ...clients];
-    persist(next);
-    setSelectedId(c.id);
-    setIsNewlyCreated(true);
-    setOpen(true);
   }
 
   function onRowClick(id: string) {

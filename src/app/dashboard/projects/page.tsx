@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -94,8 +95,19 @@ export default function ProjectsPage() {
     },
   ]);
 
+  const searchParams = useSearchParams();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const hasOpenedFromParam = useRef(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "1" && !hasOpenedFromParam.current) {
+      hasOpenedFromParam.current = true;
+      setEditingId(null);
+      setEditorOpen(true);
+      window.history.replaceState({}, "", "/dashboard/projects");
+    }
+  }, [searchParams]);
 
   const editingProject = useMemo(() => {
     if (!editingId) return null;

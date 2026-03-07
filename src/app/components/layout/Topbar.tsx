@@ -15,10 +15,10 @@ export function Topbar() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-                <Button href="#" variant="secondary">
+                <Button href="/dashboard/clients?new=1" variant="secondary">
                     New client
                 </Button>
-                <Button href="#" variant="primary" className="gap-2">
+                <Button href="/dashboard/projects?new=1" variant="primary" className="gap-2">
                     <Plus className="h-4 w-4" />
                     New project
                 </Button>
