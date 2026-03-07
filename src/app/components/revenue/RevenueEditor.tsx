@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/Button";
 
 export type ProjectStatus = "Discovery" | "Build" | "Review" | "Live";
@@ -14,7 +14,7 @@ export type RevenueNote = {
     pricingType: PricingType;
     amount: number;
     hoursInvested?: number;
-    date: string; // YYYY-MM-DD
+    date: string;
     notes?: string;
 };
 
@@ -70,10 +70,7 @@ function Segmented<T extends string>({
 }) {
     return (
         <div
-            className={[
-                "inline-flex w-full overflow-hidden rounded-xl",
-                "border border-border/70 bg-surface",
-            ].join(" ")}
+            className="inline-flex w-full overflow-hidden rounded-xl border border-border/70 bg-surface"
             role="group"
             aria-label={label}
         >
@@ -87,10 +84,10 @@ function Segmented<T extends string>({
                         onClick={() => onChange(opt)}
                         className={[
                             "relative flex-1",
-                            "h-11 sm:h-10 px-3",
-                            "text-base sm:text-sm font-medium",
+                            "h-11 px-3 sm:h-10",
+                            "text-base font-medium sm:text-sm",
                             "transition",
-                            "focus:outline-none focus:ring-2 focus:ring-ring/15 focus:z-10",
+                            "focus:z-10 focus:outline-none focus:ring-2 focus:ring-ring/15",
                             "hover:bg-surface-hover",
                             active
                                 ? `text-foreground ${activeBg(opt)}`
@@ -98,9 +95,7 @@ function Segmented<T extends string>({
                         ].join(" ")}
                     >
                         <span className="inline-flex items-center justify-center gap-2">
-                            <span
-                                className={`h-2 w-2 rounded-full ${dotClass(opt)}`}
-                            />
+                            <span className={`h-2 w-2 rounded-full ${dotClass(opt)}`} />
                             <span>{opt}</span>
                         </span>
 
@@ -148,16 +143,27 @@ export function RevenueEditor({
     onSave: (patch: Partial<RevenueNote>) => void;
     onCancel: () => void;
 }) {
-    const [name, setName] = useState(note.name);
-    const [client, setClient] = useState(note.client);
-    const [status, setStatus] = useState<ProjectStatus>(note.status);
-    const [pricingType, setPricingType] = useState<PricingType>(note.pricingType);
-    const [amount, setAmount] = useState(String(note.amount ?? 0));
-    const [hours, setHours] = useState(
-        note.hoursInvested === undefined ? "" : String(note.hoursInvested)
-    );
-    const [date, setDate] = useState(note.date ?? "");
-    const [notes, setNotes] = useState(note.notes ?? "");
+    const [name, setName] = useState("");
+    const [client, setClient] = useState("");
+    const [status, setStatus] = useState<ProjectStatus>("Discovery");
+    const [pricingType, setPricingType] = useState<PricingType>("fixed");
+    const [amount, setAmount] = useState("0");
+    const [hours, setHours] = useState("");
+    const [date, setDate] = useState("");
+    const [notes, setNotes] = useState("");
+
+    useEffect(() => {
+        setName(note.name ?? "");
+        setClient(note.client ?? "");
+        setStatus(note.status ?? "Discovery");
+        setPricingType(note.pricingType ?? "fixed");
+        setAmount(String(note.amount ?? 0));
+        setHours(
+            note.hoursInvested === undefined ? "" : String(note.hoursInvested)
+        );
+        setDate(note.date ?? "");
+        setNotes(note.notes ?? "");
+    }, [note]);
 
     const parsedAmount = Number(amount || 0);
     const parsedHours = hours.trim() === "" ? undefined : Number(hours);
@@ -180,6 +186,29 @@ export function RevenueEditor({
         amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
         hoursInvested: Number.isFinite(parsedHours ?? NaN) ? parsedHours : undefined,
     });
+
+    function handlePrimaryAction() {
+        if (!dirty) {
+            onCancel();
+            return;
+        }
+
+        onSave({
+            name: name.trim() || "Untitled",
+            client: client.trim() || "—",
+            status,
+            pricingType,
+            amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
+            hoursInvested:
+                parsedHours === undefined
+                    ? undefined
+                    : Number.isFinite(parsedHours)
+                        ? parsedHours
+                        : undefined,
+            date: date.trim(),
+            notes: notes.trim() || undefined,
+        });
+    }
 
     return (
         <div className="space-y-5">
@@ -297,7 +326,7 @@ export function RevenueEditor({
                 {er ? (
                     <div className="rounded-xl border border-border/70 bg-surface px-3 py-2 text-sm text-muted-foreground">
                         Effective rate:{" "}
-                        <span className="text-foreground font-medium">
+                        <span className="font-medium text-foreground">
                             {formatMoney(er)}/hr
                         </span>
                     </div>
@@ -327,23 +356,7 @@ export function RevenueEditor({
                     Cancel
                 </Button>
                 <Button
-                    onClick={() =>
-                        onSave({
-                            name: name.trim() || "Untitled",
-                            client: client.trim() || "—",
-                            status,
-                            pricingType,
-                            amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
-                            hoursInvested:
-                                parsedHours === undefined
-                                    ? undefined
-                                    : Number.isFinite(parsedHours)
-                                        ? parsedHours
-                                        : undefined,
-                            date: date.trim(),
-                            notes: notes.trim() || undefined,
-                        })
-                    }
+                    onClick={handlePrimaryAction}
                     variant="primary"
                     className="ml-auto"
                 >

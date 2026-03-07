@@ -5,7 +5,7 @@ type Variant = "primary" | "secondary" | "ghost";
 
 type Props = {
     href?: string;
-    onClick?: () => void;
+    onClick?: React.MouseEventHandler<HTMLButtonElement>;
     children: React.ReactNode;
     variant?: Variant;
     className?: string;
