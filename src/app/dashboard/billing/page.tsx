@@ -177,10 +177,8 @@ export default function BillingPage() {
       result = result.filter((i) => i._displayStatus === filters.status);
     }
     if (filters.dueDate.trim()) {
-      const q = filters.dueDate.toLowerCase().trim();
-      result = result.filter((i) =>
-        (i.dueOn ?? "").toLowerCase().includes(q)
-      );
+      const filterDate = filters.dueDate.trim();
+      result = result.filter((i) => (i.dueOn ?? "") === filterDate);
     }
 
     if (sortByDue) {

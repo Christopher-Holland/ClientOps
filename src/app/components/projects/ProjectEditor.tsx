@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/Button";
+import { DateInput } from "@/app/components/ui/DateInput";
 
 export type ProjectStatus = "Discovery" | "Build" | "Review" | "Live";
 export type PricingType = "fixed" | "hourly" | "retainer";
@@ -286,12 +287,11 @@ export function ProjectEditor({
                     </div>
                 ) : null}
 
-                <Field label="Due" hint="e.g. Mar 15 or 2026-03-15">
-                    <input
-                        className={inputClass()}
+                <Field label="Due">
+                    <DateInput
                         value={due}
-                        onChange={(e) => setDue(e.target.value)}
-                        placeholder="Mar 15"
+                        onChange={setDue}
+                        aria-label="Due date"
                     />
                 </Field>
 

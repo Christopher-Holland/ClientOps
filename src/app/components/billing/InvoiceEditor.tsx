@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/Button";
+import { DateInput } from "@/app/components/ui/DateInput";
 
 export type InvoiceStatus = "Draft" | "Sent" | "Paid" | "Overdue";
 
@@ -222,32 +223,29 @@ export function InvoiceEditor({
                 </Field>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Issued" hint="YYYY-MM-DD">
-                        <input
-                            className={inputClass()}
+                    <Field label="Issued">
+                        <DateInput
                             value={issuedOn}
-                            onChange={(e) => setIssuedOn(e.target.value)}
-                            placeholder="2026-03-02"
+                            onChange={setIssuedOn}
+                            aria-label="Issued date"
                         />
                     </Field>
 
-                    <Field label="Due" hint="YYYY-MM-DD">
-                        <input
-                            className={inputClass()}
+                    <Field label="Due">
+                        <DateInput
                             value={dueOn}
-                            onChange={(e) => setDueOn(e.target.value)}
-                            placeholder="2026-03-15"
+                            onChange={setDueOn}
+                            aria-label="Due date"
                         />
                     </Field>
                 </div>
 
                 {showPaidOn ? (
-                    <Field label="Paid on" hint="YYYY-MM-DD">
-                        <input
-                            className={inputClass()}
+                    <Field label="Paid on">
+                        <DateInput
                             value={paidOn}
-                            onChange={(e) => setPaidOn(e.target.value)}
-                            placeholder="2026-03-10"
+                            onChange={setPaidOn}
+                            aria-label="Paid date"
                         />
                     </Field>
                 ) : null}

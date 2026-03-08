@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import type { Client, ClientStatus } from "@/app/lib/store";
 import { Button } from "@/app/components/ui/Button";
+import { DateInput } from "@/app/components/ui/DateInput";
 
 function Field({
     label,
@@ -160,12 +161,11 @@ export function ClientEditor({
                     <StatusSegmented value={status} onChange={setStatus} />
                 </Field>
                 
-                <Field label="Last contact" hint="YYYY-MM-DD">
-                    <input
-                        className={inputClass()}
+                <Field label="Last contact">
+                    <DateInput
                         value={lastContact}
-                        onChange={(e) => setLastContact(e.target.value)}
-                        placeholder="2026-03-01"
+                        onChange={setLastContact}
+                        aria-label="Last contact date"
                     />
                 </Field>
 
@@ -215,7 +215,7 @@ export function ClientEditor({
                         onSave({
                             name: name.trim() || "Untitled",
                             status,
-                            lastContact: lastContact.trim(),
+                            lastContact: lastContact.trim() || undefined,
                             nextAction: nextAction.trim(),
                             email: email.trim(),
                             notes: notes.trim(),

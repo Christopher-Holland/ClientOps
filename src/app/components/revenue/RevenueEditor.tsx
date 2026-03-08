@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/Button";
+import { DateInput } from "@/app/components/ui/DateInput";
 
 export type ProjectStatus = "Discovery" | "Build" | "Review" | "Live";
 export type PricingType = "fixed" | "hourly" | "retainer";
@@ -332,12 +333,11 @@ export function RevenueEditor({
                     </div>
                 ) : null}
 
-                <Field label="Date" hint="YYYY-MM-DD">
-                    <input
-                        className={inputClass()}
+                <Field label="Date">
+                    <DateInput
                         value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        placeholder="2026-03-01"
+                        onChange={setDate}
+                        aria-label="Date"
                     />
                 </Field>
 

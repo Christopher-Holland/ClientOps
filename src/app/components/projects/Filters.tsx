@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/Button";
+import { DateInput } from "@/app/components/ui/DateInput";
 import { Filter, ChevronDown } from "lucide-react";
 import type { Project, ProjectStatus } from "./ProjectEditor";
 
@@ -194,17 +195,15 @@ export function Filters({
                                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                                     Due date
                                 </label>
-                                <input
-                                    type="text"
+                                <DateInput
                                     value={filters.dueDate}
-                                    onChange={(e) =>
+                                    onChange={(due) =>
                                         onFiltersChange({
                                             ...filters,
-                                            dueDate: e.target.value,
+                                            dueDate: due,
                                         })
                                     }
-                                    placeholder="e.g. Mar, 15, 2026…"
-                                    className={inputClass()}
+                                    aria-label="Filter by due date"
                                 />
                             </div>
 

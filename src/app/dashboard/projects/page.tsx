@@ -7,6 +7,7 @@ import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
 import { ProjectEditor, type Project, type ProjectStatus } from "@/app/components/projects/ProjectEditor";
 import { Filters, type ProjectFilters, type SortByDue } from "@/app/components/projects/Filters";
+import { toYYYYMMDD } from "@/app/components/ui/DateInput";
 
 function formatMoney(n: number) {
   return n.toLocaleString(undefined, {
@@ -142,10 +143,8 @@ export default function ProjectsPage() {
       result = result.filter((p) => p.status === filters.status);
     }
     if (filters.dueDate.trim()) {
-      const q = filters.dueDate.toLowerCase().trim();
-      result = result.filter((p) =>
-        p.due.toLowerCase().includes(q)
-      );
+      const filterDate = filters.dueDate.trim();
+      result = result.filter((p) => toYYYYMMDD(p.due) === filterDate || p.due === filterDate);
     }
 
     if (sortByDue) {
@@ -155,11 +154,16 @@ export default function ProjectsPage() {
       };
       function dueSortKey(due: string): number {
         if (!due || due === "—") return Infinity;
+        const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(due.trim());
+        if (iso) {
+          return parseInt(iso[1], 10) * 10000 + parseInt(iso[2], 10) * 100 + parseInt(iso[3], 10);
+        }
         const m = due.match(/^([a-zA-Z]{3})\s*(\d+)/);
         if (!m) return Infinity;
         const month = monthOrder[m[1].toLowerCase()] ?? 12;
         const day = parseInt(m[2], 10) || 1;
-        return month * 31 + day;
+        const year = new Date().getFullYear();
+        return year * 10000 + month * 100 + day;
       }
       result.sort((a, b) => {
         const ka = dueSortKey(a.due);
