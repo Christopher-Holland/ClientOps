@@ -26,10 +26,10 @@ export default function SignInPage() {
       <div className="w-full max-w-[400px]">
         <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-8">
           <div className="text-center">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            <h1 className="text-xl font-semibold tracking-tight text-card-foreground">
               ClientOps
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-card-foreground/90">
               Sign in to your account
             </p>
           </div>
@@ -39,7 +39,7 @@ export default function SignInPage() {
               fullPage={false}
               automaticRedirect={true}
               extraInfo={
-                <p className="mt-4 text-center text-xs text-muted-foreground">
+                <p className="mt-4 text-center text-xs text-card-foreground/80">
                   By signing in, you agree to our terms of service.
                 </p>
               }
@@ -47,7 +47,7 @@ export default function SignInPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="mt-6 text-center text-sm text-foreground">
           Don&apos;t have an account?{" "}
           <Link
             href="/components/sign-up"

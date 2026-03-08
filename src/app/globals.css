@@ -23,28 +23,27 @@
   --ring: 13 148 136;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Dark: warm charcoal — not harsh black */
-    --background: 23 23 23; /* zinc-950, neutral dark */
-    --foreground: 250 250 250; /* zinc-50 */
+html.dark,
+html[data-theme="dark"] {
+  /* Dark: warm charcoal — not harsh black */
+  --background: 23 23 23; /* zinc-950, neutral dark */
+  --foreground: 250 250 250; /* zinc-50 */
 
-    --muted: 161 161 170; /* zinc-400 */
-    --muted-foreground: 161 161 170;
+  --muted: 161 161 170; /* zinc-400 */
+  --muted-foreground: 161 161 170;
 
-    --card: 39 39 42; /* zinc-800 */
-    --card-foreground: 250 250 250;
+  --card: 39 39 42; /* zinc-800 */
+  --card-foreground: 250 250 250;
 
-    --border: 63 63 70; /* zinc-700 */
+  --border: 63 63 70; /* zinc-700 */
 
-    --surface: 39 39 42; /* zinc-800 */
-    --surface-hover: 63 63 70; /* zinc-700 */
+  --surface: 39 39 42; /* zinc-800 */
+  --surface-hover: 63 63 70; /* zinc-700 */
 
-    --accent: 45 212 191; /* teal-400 — pops on dark */
-    --accent-foreground: 9 9 11; /* zinc-950 */
+  --accent: 45 212 191; /* teal-400 — pops on dark */
+  --accent-foreground: 9 9 11; /* zinc-950 */
 
-    --ring: 45 212 191;
-  }
+  --ring: 45 212 191;
 }
 
 @theme inline {
