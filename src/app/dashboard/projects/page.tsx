@@ -6,6 +6,7 @@ import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
 import { ProjectEditor, type Project, type ProjectStatus } from "@/app/components/projects/ProjectEditor";
+import { Filters, type ProjectFilters, type SortByDue } from "@/app/components/projects/Filters";
 
 function formatMoney(n: number) {
   return n.toLocaleString(undefined, {
@@ -117,6 +118,62 @@ export default function ProjectsPage() {
   const editorProject = editingProject ?? newProjectDraft();
   const isEdit = Boolean(editingProject);
 
+  const [filters, setFilters] = useState<ProjectFilters>({
+    project: "",
+    client: "",
+    status: "",
+    dueDate: "",
+  });
+  const [sortByDue, setSortByDue] = useState<SortByDue>(null);
+
+  const filteredAndSortedProjects = useMemo(() => {
+    let result = [...projects];
+
+    if (filters.project.trim()) {
+      const q = filters.project.toLowerCase().trim();
+      result = result.filter((p) =>
+        p.name.toLowerCase().includes(q)
+      );
+    }
+    if (filters.client) {
+      result = result.filter((p) => p.client === filters.client);
+    }
+    if (filters.status) {
+      result = result.filter((p) => p.status === filters.status);
+    }
+    if (filters.dueDate.trim()) {
+      const q = filters.dueDate.toLowerCase().trim();
+      result = result.filter((p) =>
+        p.due.toLowerCase().includes(q)
+      );
+    }
+
+    if (sortByDue) {
+      const monthOrder: Record<string, number> = {
+        jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+        jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+      };
+      function dueSortKey(due: string): number {
+        if (!due || due === "—") return Infinity;
+        const m = due.match(/^([a-zA-Z]{3})\s*(\d+)/);
+        if (!m) return Infinity;
+        const month = monthOrder[m[1].toLowerCase()] ?? 12;
+        const day = parseInt(m[2], 10) || 1;
+        return month * 31 + day;
+      }
+      result.sort((a, b) => {
+        const ka = dueSortKey(a.due);
+        const kb = dueSortKey(b.due);
+        if (ka === kb) return 0;
+        return sortByDue === "asc"
+          ? (ka > kb ? 1 : -1)
+          : (ka < kb ? 1 : -1);
+      });
+    }
+
+    return result;
+  }, [projects, filters, sortByDue]);
+
   function openNew() {
     setEditingId(null);
     setEditorOpen(true);
@@ -173,9 +230,13 @@ export default function ProjectsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => {}}>
-            Filters
-          </Button>
+          <Filters
+            projects={projects}
+            filters={filters}
+            onFiltersChange={setFilters}
+            sortByDue={sortByDue}
+            onSortByDueChange={setSortByDue}
+          />
           <Button variant="primary" onClick={() => openNew()}>
             New project
           </Button>
@@ -185,7 +246,7 @@ export default function ProjectsPage() {
       <Card className="p-0">
         {/* Mobile: card list */}
         <div className="space-y-0 md:hidden">
-          {projects.map((p) => {
+          {filteredAndSortedProjects.map((p) => {
             const r = effectiveRate(p);
             return (
               <button
@@ -228,7 +289,7 @@ export default function ProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {projects.map((p) => {
+              {filteredAndSortedProjects.map((p) => {
                 const r = effectiveRate(p);
                 return (
                   <tr

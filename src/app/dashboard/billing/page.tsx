@@ -5,6 +5,7 @@ import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
 import { InvoiceEditor, type Invoice, type InvoiceStatus } from "@/app/components/billing/InvoiceEditor";
+import { Filters, type InvoiceFilters, type SortByDue } from "@/app/components/billing/Filters";
 
 function formatMoney(n: number) {
   return n.toLocaleString(undefined, {
@@ -152,6 +153,59 @@ export default function BillingPage() {
   const editorInvoice = editingInvoice ?? newInvoiceDraft();
   const isEdit = Boolean(editingInvoice);
 
+  const [filters, setFilters] = useState<InvoiceFilters>({
+    client: "",
+    project: "",
+    status: "",
+    dueDate: "",
+  });
+  const [sortByDue, setSortByDue] = useState<SortByDue>(null);
+
+  const filteredAndSortedInvoices = useMemo(() => {
+    let result = [...decorated];
+
+    if (filters.client) {
+      result = result.filter((i) => i.client === filters.client);
+    }
+    if (filters.project.trim()) {
+      const q = filters.project.toLowerCase().trim();
+      result = result.filter((i) =>
+        (i.project ?? "").toLowerCase().includes(q)
+      );
+    }
+    if (filters.status) {
+      result = result.filter((i) => i._displayStatus === filters.status);
+    }
+    if (filters.dueDate.trim()) {
+      const q = filters.dueDate.toLowerCase().trim();
+      result = result.filter((i) =>
+        (i.dueOn ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    if (sortByDue) {
+      function dueSortKey(due?: string): number {
+        if (!due) return Infinity;
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(due.trim());
+        if (!m) return Infinity;
+        const y = parseInt(m[1], 10);
+        const mo = parseInt(m[2], 10);
+        const d = parseInt(m[3], 10);
+        return y * 10000 + mo * 100 + d;
+      }
+      result.sort((a, b) => {
+        const ka = dueSortKey(a.dueOn);
+        const kb = dueSortKey(b.dueOn);
+        if (ka === kb) return 0;
+        return sortByDue === "asc"
+          ? (ka > kb ? 1 : -1)
+          : (ka < kb ? 1 : -1);
+      });
+    }
+
+    return result;
+  }, [decorated, filters, sortByDue]);
+
   function openNew() {
     setEditingId(null);
     setEditorOpen(true);
@@ -215,9 +269,13 @@ export default function BillingPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => {}}>
-            Filters
-          </Button>
+          <Filters
+            invoices={decorated}
+            filters={filters}
+            onFiltersChange={setFilters}
+            sortByDue={sortByDue}
+            onSortByDueChange={setSortByDue}
+          />
           <Button variant="primary" onClick={() => openNew()}>
             New invoice
           </Button>
@@ -275,7 +333,7 @@ export default function BillingPage() {
               </tr>
             </thead>
             <tbody>
-              {decorated.map((inv) => (
+              {filteredAndSortedInvoices.map((inv) => (
                 <tr
                   key={inv.id}
                   className="border-t border-border/70 hover:bg-surface/60 transition"
@@ -323,7 +381,7 @@ export default function BillingPage() {
 
         {/* Mobile list */}
         <div className="space-y-0 md:hidden">
-          {decorated.map((inv) => (
+          {filteredAndSortedInvoices.map((inv) => (
             <div
               key={inv.id}
               className="border-t border-border/70 p-4 first:border-t-0"
