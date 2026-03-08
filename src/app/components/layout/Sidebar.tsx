@@ -89,7 +89,7 @@ export function Sidebar() {
 
                 <div className="mt-6 border-t border-border/70 pt-3">
                     <Link
-                        href="/api/auth/logout"
+                        href="/handler/sign-out"
                         className="group flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-card hover:text-foreground"
                     >
                         <LogOut className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
