@@ -12,4 +12,11 @@ export const stackClientApp = new StackClientApp({
   projectId,
   publishableClientKey,
   noAutomaticPrefetch: true,
+  urls: {
+    signIn: "/components/sign-in",
+    signUp: "/components/sign-up",
+    afterSignIn: "/dashboard",
+    afterSignUp: "/dashboard",
+    afterSignOut: "/components/sign-in",
+  },
 });
