@@ -60,7 +60,10 @@ const initialProjects: Project[] = [
     },
 ];
 
-function formatMoney(n: number, { decimals = 0 }: { decimals?: number } = {}) {
+function formatMoney(
+    n: number,
+    { decimals = 0 }: { decimals?: number } = {}
+) {
     return n.toLocaleString(undefined, {
         style: "currency",
         currency: "USD",
@@ -69,19 +72,30 @@ function formatMoney(n: number, { decimals = 0 }: { decimals?: number } = {}) {
     });
 }
 
-function StatusPill({ status }: { status: ProjectStatus }) {
-    const cls =
-        status === "Live"
-            ? "bg-accent/15 text-foreground"
-            : status === "Build"
-                ? "bg-surface text-foreground"
-                : status === "Review"
-                    ? "bg-surface text-foreground"
-                    : "bg-surface text-muted-foreground";
+function clampPct(value: number) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(100, value));
+}
 
+function formatPct(value: number) {
+    return `${Math.round(value)}%`;
+}
+
+function getStatusTone(status: string) {
+    if (status === "Live") return "bg-accent/15 text-foreground";
+    if (status === "Build") return "bg-surface text-foreground";
+    if (status === "Review") return "bg-surface text-foreground";
+    if (status === "Discovery") return "bg-surface text-muted-foreground";
+    if (status === "Paused") return "bg-surface text-muted-foreground";
+    return "bg-surface text-muted-foreground";
+}
+
+function StatusPill({ status }: { status: string }) {
     return (
         <span
-            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getStatusTone(
+                status
+            )}`}
         >
             {status}
         </span>
@@ -130,6 +144,43 @@ function calcRevenueSnapshot(items: Project[]) {
     );
     const avgEffectiveRate = totalHours > 0 ? totalFixedDollars / totalHours : null;
 
+    const activeProjects = items.filter(
+        (p) => p.status === "Build" || p.status === "Review"
+    );
+
+    const activeProjectValue = activeProjects.reduce((sum, p) => {
+        if (p.pricingType === "hourly") {
+            return sum + p.amount * (p.hoursInvested ?? 0);
+        }
+        if (p.pricingType === "retainer") return sum + p.amount;
+        return sum + p.amount;
+    }, 0);
+
+    const liveProjects = items.filter((p) => p.status === "Live").length;
+    const buildProjects = items.filter((p) => p.status === "Build").length;
+    const reviewProjects = items.filter((p) => p.status === "Review").length;
+
+    const pricingMix = {
+        retainer: mrr,
+        fixed: fixedTotal,
+        hourly: hourlyProjected,
+    };
+
+    const topProjects = [...items]
+        .map((p) => {
+            const realizedValue =
+                p.pricingType === "hourly"
+                    ? p.amount * (p.hoursInvested ?? 0)
+                    : p.amount;
+            return {
+                ...p,
+                realizedValue,
+                effectiveRate: effectiveRate(p),
+            };
+        })
+        .sort((a, b) => b.realizedValue - a.realizedValue)
+        .slice(0, 5);
+
     return {
         mrr,
         hourlyProjected,
@@ -137,6 +188,12 @@ function calcRevenueSnapshot(items: Project[]) {
         fixedNonLive,
         projectedMonthly,
         avgEffectiveRate,
+        activeProjectValue,
+        liveProjects,
+        buildProjects,
+        reviewProjects,
+        pricingMix,
+        topProjects,
     };
 }
 
@@ -160,6 +217,126 @@ function formatNotePricing(n: RevenueNote) {
     return `${formatMoney(n.amount)}/mo`;
 }
 
+function getRevenueNoteValue(note: RevenueNote) {
+    if (note.pricingType === "hourly") return note.amount * (note.hoursInvested ?? 0);
+    return note.amount;
+}
+
+function getMonthShortLabel(date: Date) {
+    return date.toLocaleString(undefined, { month: "short" });
+}
+
+function buildRevenueTrend(projects: Project[], notes: RevenueNote[]) {
+    const today = new Date();
+    const months = Array.from({ length: 12 }).map((_, index) => {
+        const d = new Date(today.getFullYear(), today.getMonth() - (11 - index), 1);
+        return {
+            key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+            label: getMonthShortLabel(d),
+            fixed: 0,
+            hourly: 0,
+            retainer: 0,
+            notes: 0,
+        };
+    });
+
+    const currentMonthIndex = months.length - 1;
+
+    projects.forEach((p) => {
+        if (p.pricingType === "retainer") {
+            months.forEach((m) => {
+                m.retainer += p.amount;
+            });
+            return;
+        }
+
+        if (p.pricingType === "fixed") {
+            months[currentMonthIndex].fixed += p.amount;
+            return;
+        }
+
+        if (p.pricingType === "hourly") {
+            months[currentMonthIndex].hourly += p.amount * (p.hoursInvested ?? 0);
+        }
+    });
+
+    notes.forEach((n) => {
+        const monthKey = n.date?.slice(0, 7);
+        const bucket = months.find((m) => m.key === monthKey);
+        if (!bucket) return;
+        bucket.notes += getRevenueNoteValue(n);
+    });
+
+    return months.map((m) => ({
+        ...m,
+        total: m.fixed + m.hourly + m.retainer + m.notes,
+    }));
+}
+
+function BarChart({
+    data,
+}: {
+    data: Array<{ label: string; total: number }>;
+}) {
+    const max = Math.max(...data.map((d) => d.total), 1);
+
+    return (
+        <div className="space-y-3">
+            <div className="flex h-44 items-end gap-2">
+                {data.map((item) => {
+                    const height = `${Math.max(10, (item.total / max) * 100)}%`;
+                    return (
+                        <div key={item.label} className="flex flex-1 flex-col items-center gap-2">
+                            <div className="flex h-full w-full items-end">
+                                <div
+                                    className="w-full rounded-t-xl bg-accent/75 transition-all"
+                                    style={{ height }}
+                                    title={`${item.label}: ${formatMoney(item.total)}`}
+                                />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{item.label}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function MiniProgress({
+    value,
+    total,
+    label,
+    hint,
+}: {
+    value: number;
+    total: number;
+    label: string;
+    hint?: string;
+}) {
+    const percent = total > 0 ? clampPct((value / total) * 100) : 0;
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <div className="text-sm font-medium">{label}</div>
+                    {hint ? (
+                        <div className="text-xs text-muted-foreground">{hint}</div>
+                    ) : null}
+                </div>
+                <div className="text-sm font-medium">{formatPct(percent)}</div>
+            </div>
+            <div className="h-2 rounded-full bg-surface">
+                <div
+                    className="h-2 rounded-full bg-accent/75 transition-all"
+                    style={{ width: `${percent}%` }}
+                />
+            </div>
+        </div>
+    );
+}
+
 type NoteEditorMode = "new" | "edit" | null;
 
 export default function RevenuePage() {
@@ -173,6 +350,8 @@ export default function RevenuePage() {
     const [projectEditorOpen, setProjectEditorOpen] = useState(false);
     const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
+    const [monthlyGoal] = useState(5000);
+
     const editingProject = useMemo(
         () => projects.find((p) => p.id === editingProjectId) ?? null,
         [projects, editingProjectId]
@@ -181,7 +360,27 @@ export default function RevenuePage() {
     const isEditProject = Boolean(editingProject);
     const isEditNote = noteEditorMode === "edit" && Boolean(activeNote);
 
-    const snap = calcRevenueSnapshot(projects);
+    const snap = useMemo(() => calcRevenueSnapshot(projects), [projects]);
+    const trend = useMemo(() => buildRevenueTrend(projects, notes), [projects, notes]);
+
+    const currentMonth = trend[trend.length - 1];
+    const lastMonth = trend[trend.length - 2];
+
+    const monthOverMonth =
+        lastMonth && lastMonth.total > 0
+            ? ((currentMonth.total - lastMonth.total) / lastMonth.total) * 100
+            : 0;
+
+    const goalProgress = monthlyGoal > 0 ? (currentMonth.total / monthlyGoal) * 100 : 0;
+
+    const pipelineNotesValue = notes
+        .filter((n) => n.status === "Discovery" || n.status === "Review")
+        .reduce((sum, n) => sum + getRevenueNoteValue(n), 0);
+
+    const totalPipelineValue = snap.fixedNonLive + pipelineNotesValue;
+
+    const totalPricingMix =
+        snap.pricingMix.retainer + snap.pricingMix.fixed + snap.pricingMix.hourly;
 
     function openNewNote() {
         setActiveNote(newRevenueNoteDraft());
@@ -256,7 +455,7 @@ export default function RevenuePage() {
                         Revenue
                     </h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Internal performance, projections, and rate sanity checks.
+                        Internal performance, goals, projections, and revenue health.
                     </p>
                 </div>
 
@@ -270,15 +469,23 @@ export default function RevenuePage() {
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <Card className="p-5">
-                    <div className="text-xs font-medium text-muted-foreground">MRR</div>
+                    <div className="text-xs font-medium text-muted-foreground">Monthly goal</div>
                     <div className="mt-2 text-2xl font-semibold tracking-tight">
-                        {formatMoney(snap.mrr)}
+                        {formatMoney(monthlyGoal)}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Retainers / month.
+                        Revenue target for the current month.
                     </p>
+                    <div className="mt-4">
+                        <MiniProgress
+                            value={currentMonth.total}
+                            total={monthlyGoal}
+                            label={`${formatMoney(currentMonth.total)} tracked`}
+                            hint="Goal progress"
+                        />
+                    </div>
                 </Card>
 
                 <Card className="p-5">
@@ -291,18 +498,28 @@ export default function RevenuePage() {
                     <p className="mt-1 text-sm text-muted-foreground">
                         MRR + hourly + active fixed work.
                     </p>
+                    <div className="mt-4 text-sm text-muted-foreground">
+                        Current trend:{" "}
+                        <span className="font-medium text-foreground">
+                            {monthOverMonth >= 0 ? "+" : ""}
+                            {monthOverMonth.toFixed(0)}%
+                        </span>{" "}
+                        vs last month
+                    </div>
                 </Card>
 
                 <Card className="p-5">
-                    <div className="text-xs font-medium text-muted-foreground">
-                        Hourly projected
-                    </div>
+                    <div className="text-xs font-medium text-muted-foreground">MRR</div>
                     <div className="mt-2 text-2xl font-semibold tracking-tight">
-                        {formatMoney(snap.hourlyProjected)}
+                        {formatMoney(snap.mrr)}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Based on hours invested (v0).
+                        Stable recurring revenue from retainers.
                     </p>
+                    <div className="mt-4 text-sm text-muted-foreground">
+                        Live projects:{" "}
+                        <span className="font-medium text-foreground">{snap.liveProjects}</span>
+                    </div>
                 </Card>
 
                 <Card className="p-5">
@@ -315,8 +532,210 @@ export default function RevenuePage() {
                             : "—"}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Fixed-fee projects with hours.
+                        Fixed-fee projects with hours logged.
                     </p>
+                    <div className="mt-4 text-sm text-muted-foreground">
+                        Active work value:{" "}
+                        <span className="font-medium text-foreground">
+                            {formatMoney(snap.activeProjectValue)}
+                        </span>
+                    </div>
+                </Card>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[1.6fr_.9fr]">
+                <Card className="p-5">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <div className="text-sm font-semibold tracking-tight">
+                                Revenue trend
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Rolling 12-month view of tracked revenue and retained income.
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                This month
+                            </div>
+                            <div className="mt-1 text-lg font-semibold tracking-tight">
+                                {formatMoney(currentMonth.total)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6">
+                        <BarChart
+                            data={trend.map((m) => ({
+                                label: m.label,
+                                total: m.total,
+                            }))}
+                        />
+                    </div>
+                </Card>
+
+                <Card className="p-5">
+                    <div className="text-sm font-semibold tracking-tight">
+                        Revenue mix
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Where current revenue is coming from.
+                    </p>
+
+                    <div className="mt-5 space-y-5">
+                        <MiniProgress
+                            value={snap.pricingMix.retainer}
+                            total={Math.max(totalPricingMix, 1)}
+                            label="Retainers"
+                            hint={formatMoney(snap.pricingMix.retainer)}
+                        />
+                        <MiniProgress
+                            value={snap.pricingMix.fixed}
+                            total={Math.max(totalPricingMix, 1)}
+                            label="Fixed fee"
+                            hint={formatMoney(snap.pricingMix.fixed)}
+                        />
+                        <MiniProgress
+                            value={snap.pricingMix.hourly}
+                            total={Math.max(totalPricingMix, 1)}
+                            label="Hourly"
+                            hint={formatMoney(snap.pricingMix.hourly)}
+                        />
+                    </div>
+
+                    <div className="mt-6 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <div className="rounded-2xl border border-border/70 p-4">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Build
+                            </div>
+                            <div className="mt-2 text-xl font-semibold">{snap.buildProjects}</div>
+                        </div>
+                        <div className="rounded-2xl border border-border/70 p-4">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Review
+                            </div>
+                            <div className="mt-2 text-xl font-semibold">{snap.reviewProjects}</div>
+                        </div>
+                        <div className="rounded-2xl border border-border/70 p-4">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Pipeline
+                            </div>
+                            <div className="mt-2 text-xl font-semibold">
+                                {formatMoney(totalPipelineValue)}
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-3">
+                <Card className="p-5 xl:col-span-2">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <div className="text-sm font-semibold tracking-tight">
+                                Top earning projects
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Highest-value work based on current pricing and tracked hours.
+                            </p>
+                        </div>
+                        <div className="text-xs font-medium text-muted-foreground">
+                            Ranked by value
+                        </div>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                        {snap.topProjects.map((project, index) => (
+                            <button
+                                key={project.id}
+                                type="button"
+                                onClick={() => openEditProject(project)}
+                                className="flex w-full items-center justify-between gap-4 rounded-2xl border border-border/70 p-4 text-left transition hover:bg-surface/60"
+                            >
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-semibold text-muted-foreground">
+                                            {index + 1}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="truncate font-medium">{project.name}</div>
+                                            <div className="mt-1 truncate text-sm text-muted-foreground">
+                                                {project.client} · {formatPricing(project)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                        <StatusPill status={project.status} />
+                                        <span className="text-xs text-muted-foreground">
+                                            Hours: {project.hoursInvested ?? "—"}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                            Eff. rate:{" "}
+                                            {project.effectiveRate
+                                                ? `${formatMoney(project.effectiveRate)}/hr`
+                                                : "—"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="shrink-0 text-right">
+                                    <div className="text-xs font-medium text-muted-foreground">
+                                        Value
+                                    </div>
+                                    <div className="mt-1 text-lg font-semibold tracking-tight">
+                                        {formatMoney(project.realizedValue)}
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </Card>
+
+                <Card className="p-5">
+                    <div className="text-sm font-semibold tracking-tight">
+                        Performance summary
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Quick read on revenue health this month.
+                    </p>
+
+                    <div className="mt-5 space-y-4">
+                        <div className="rounded-2xl border border-border/70 p-4">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Goal completion
+                            </div>
+                            <div className="mt-2 text-2xl font-semibold">
+                                {formatPct(goalProgress)}
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {formatMoney(currentMonth.total)} of {formatMoney(monthlyGoal)}
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-border/70 p-4">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Fixed-fee pipeline
+                            </div>
+                            <div className="mt-2 text-2xl font-semibold">
+                                {formatMoney(snap.fixedNonLive)}
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Active non-live fixed work still in motion.
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-border/70 p-4">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Revenue notes pipeline
+                            </div>
+                            <div className="mt-2 text-2xl font-semibold">
+                                {formatMoney(pipelineNotesValue)}
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Discovery and review-stage revenue notes.
+                            </p>
+                        </div>
+                    </div>
                 </Card>
             </div>
 
@@ -326,8 +745,7 @@ export default function RevenuePage() {
                         Revenue by project
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        This is internal tracking — Billing will handle invoices and
-                        payments.
+                        Internal tracking for project value, pricing efficiency, and active work.
                     </p>
                 </div>
 
@@ -386,9 +804,7 @@ export default function RevenuePage() {
                                 className="w-full border-t border-border/70 p-4 text-left transition first:border-t-0 hover:bg-surface/60"
                             >
                                 <div className="flex items-start justify-between gap-3">
-                                    <span className="font-medium text-foreground">
-                                        {p.name}
-                                    </span>
+                                    <span className="font-medium text-foreground">{p.name}</span>
                                     <StatusPill status={p.status} />
                                 </div>
                                 <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
@@ -412,7 +828,7 @@ export default function RevenuePage() {
                             Revenue notes
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Revenue entries with project and pricing details.
+                            Opportunity log, pricing notes, and internal revenue tracking.
                         </p>
                     </div>
 
@@ -514,8 +930,8 @@ export default function RevenuePage() {
             <Card>
                 <div className="text-sm font-semibold tracking-tight">Next step</div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    When Billing ships, we’ll add “Collected” vs “Outstanding” and tie
-                    revenue to invoices.
+                    Next evolution: connect Billing so this page can distinguish projected,
+                    invoiced, collected, and outstanding revenue in one place.
                 </p>
             </Card>
 
@@ -542,7 +958,11 @@ export default function RevenuePage() {
             <Drawer
                 open={projectEditorOpen}
                 onClose={closeProjectEditor}
-                title={isEditProject ? editingProject?.name?.trim() || "Edit project" : "Project"}
+                title={
+                    isEditProject
+                        ? editingProject?.name?.trim() || "Edit project"
+                        : "Project"
+                }
                 footer={null}
             >
                 {editingProject ? (
