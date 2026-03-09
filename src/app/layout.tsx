@@ -26,9 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-background text-foreground`}
+        suppressHydrationWarning
       >
         <ThemeProvider>
           <StackProvider app={stackClientApp}>
