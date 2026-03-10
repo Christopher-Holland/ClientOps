@@ -18,7 +18,7 @@ const nav = [
     { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
     { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
     { href: "/dashboard/revenue", label: "Revenue", icon: DollarSign },
-    
+
 ];
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -30,12 +30,14 @@ export function Sidebar() {
 
     return (
         <aside className="hidden w-64 shrink-0 lg:block">
-            <div className="sticky top-6 rounded-2xl border border-border/70 bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                <div className="px-2">
-                    <div className="text-sm font-semibold tracking-tight text-foreground">
-                        ClientOps
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
+            <div className="sticky top-6 rounded-2xl border border-border/70 bg-surface p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                <div className="px-2 pt-2 pb-3">
+                    <img
+                        src="/clientops.png"
+                        alt="ClientOps"
+                        className="mx-auto h-32 w-auto object-contain"
+                    />
+                    <div className="mt-1 text-center text-xs text-muted-foreground">
                         Calm, simple client operations
                     </div>
                 </div>

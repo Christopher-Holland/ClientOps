@@ -26,7 +26,7 @@ export default function SignInPage() {
       <div className="w-full max-w-[400px]">
         <div className="rounded-2xl border border-border/70 bg-card px-6 pt-4 pb-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:px-8 sm:pt-5 sm:pb-6">
           <div className="text-center">
-            <img src="/clientops.png" alt="ClientOps" className="mx-auto h-64 w-auto object-contain" />
+            <img src="/clientops.png" alt="ClientOps" className="mx-auto h-32 w-auto object-contain" />
           </div>
 
           <div className="mt-4">
