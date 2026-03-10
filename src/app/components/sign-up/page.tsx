@@ -24,17 +24,12 @@ export default function SignUpPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-[400px]">
-        <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-8">
+        <div className="rounded-2xl border border-border/70 bg-card px-6 pt-4 pb-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:px-8 sm:pt-5 sm:pb-6">
           <div className="text-center">
-            <h1 className="text-xl font-semibold tracking-tight text-card-foreground">
-              ClientOps
-            </h1>
-            <p className="mt-1 text-sm text-card-foreground/90">
-              Create your account
-            </p>
+            <img src="/clientops.png" alt="ClientOps" className="mx-auto h-64 w-auto object-contain" />
           </div>
 
-          <div className="mt-6">
+          <div className="mt-4">
             <SignUp
               fullPage={false}
               automaticRedirect={true}

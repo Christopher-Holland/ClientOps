@@ -88,3 +88,15 @@ html {
 
   -webkit-text-size-adjust: 100%;
 }
+
+/* Logo mask: PNG as mask, color from theme (black in light, white in dark) */
+.logo-mask {
+  mask-image: url("/clientops.png");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-image: url("/clientops.png");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
