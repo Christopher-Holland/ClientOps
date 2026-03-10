@@ -11,7 +11,6 @@ import {
 import {
     ProjectEditor,
     type Project,
-    type ProjectStatus,
 } from "@/app/components/projects/ProjectEditor";
 
 const initialProjects: Project[] = [
@@ -172,6 +171,7 @@ function calcRevenueSnapshot(items: Project[]) {
                 p.pricingType === "hourly"
                     ? p.amount * (p.hoursInvested ?? 0)
                     : p.amount;
+
             return {
                 ...p,
                 realizedValue,
@@ -226,12 +226,24 @@ function getMonthShortLabel(date: Date) {
     return date.toLocaleString(undefined, { month: "short" });
 }
 
+function getMonthKey(date: Date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getMonthLabel(date: Date) {
+    return date.toLocaleString(undefined, {
+        month: "long",
+        year: "numeric",
+    });
+}
+
 function buildRevenueTrend(projects: Project[], notes: RevenueNote[]) {
     const today = new Date();
     const months = Array.from({ length: 12 }).map((_, index) => {
         const d = new Date(today.getFullYear(), today.getMonth() - (11 - index), 1);
+
         return {
-            key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+            key: getMonthKey(d),
             label: getMonthShortLabel(d),
             fixed: 0,
             hourly: 0,
@@ -275,8 +287,10 @@ function buildRevenueTrend(projects: Project[], notes: RevenueNote[]) {
 
 function BarChart({
     data,
+    activeKey,
 }: {
-    data: Array<{ label: string; total: number }>;
+    data: Array<{ key: string; label: string; total: number }>;
+    activeKey?: string;
 }) {
     const max = Math.max(...data.map((d) => d.total), 1);
 
@@ -285,16 +299,24 @@ function BarChart({
             <div className="flex h-44 items-end gap-2">
                 {data.map((item) => {
                     const height = `${Math.max(10, (item.total / max) * 100)}%`;
+                    const isActive = item.key === activeKey;
+
                     return (
-                        <div key={item.label} className="flex flex-1 flex-col items-center gap-2">
+                        <div key={item.key} className="flex flex-1 flex-col items-center gap-2">
                             <div className="flex h-full w-full items-end">
                                 <div
-                                    className="w-full rounded-t-xl bg-accent/75 transition-all"
+                                    className={`w-full rounded-t-xl transition-all ${isActive ? "bg-accent" : "bg-accent/55"
+                                        }`}
                                     style={{ height }}
                                     title={`${item.label}: ${formatMoney(item.total)}`}
                                 />
                             </div>
-                            <span className="text-xs text-muted-foreground">{item.label}</span>
+                            <span
+                                className={`text-xs ${isActive ? "font-medium text-foreground" : "text-muted-foreground"
+                                    }`}
+                            >
+                                {item.label}
+                            </span>
                         </div>
                     );
                 })}
@@ -350,7 +372,26 @@ export default function RevenuePage() {
     const [projectEditorOpen, setProjectEditorOpen] = useState(false);
     const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
-    const [monthlyGoal] = useState(5000);
+    const [selectedMonth, setSelectedMonth] = useState(() => new Date());
+
+    const [monthlyGoals, setMonthlyGoals] = useState<
+        Record<string, { revenue: number; pipeline: number }>
+    >(() => {
+        const currentKey = getMonthKey(new Date());
+        return {
+            [currentKey]: {
+                revenue: 5000,
+                pipeline: 8000,
+            },
+        };
+    });
+
+    const [goalDraft, setGoalDraft] = useState({
+        revenue: 5000,
+        pipeline: 8000,
+    });
+
+    const [isEditingGoals, setIsEditingGoals] = useState(false);
 
     const editingProject = useMemo(
         () => projects.find((p) => p.id === editingProjectId) ?? null,
@@ -363,8 +404,23 @@ export default function RevenuePage() {
     const snap = useMemo(() => calcRevenueSnapshot(projects), [projects]);
     const trend = useMemo(() => buildRevenueTrend(projects, notes), [projects, notes]);
 
-    const currentMonth = trend[trend.length - 1];
-    const lastMonth = trend[trend.length - 2];
+    const selectedMonthKey = getMonthKey(selectedMonth);
+
+    const activeGoals = monthlyGoals[selectedMonthKey] ?? {
+        revenue: 5000,
+        pipeline: 8000,
+    };
+
+    const monthlyGoal = activeGoals.revenue;
+    const pipelineGoal = activeGoals.pipeline;
+
+    const currentMonthIndex = trend.findIndex((m) => m.key === selectedMonthKey);
+
+    const currentMonth =
+        currentMonthIndex >= 0 ? trend[currentMonthIndex] : trend[trend.length - 1];
+
+    const lastMonth =
+        currentMonthIndex > 0 ? trend[currentMonthIndex - 1] : null;
 
     const monthOverMonth =
         lastMonth && lastMonth.total > 0
@@ -443,6 +499,41 @@ export default function RevenuePage() {
         closeProjectEditor();
     }
 
+    function goToPreviousMonth() {
+        setSelectedMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    }
+
+    function goToNextMonth() {
+        setSelectedMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    }
+
+    function startEditingGoals() {
+        setGoalDraft({
+            revenue: activeGoals.revenue,
+            pipeline: activeGoals.pipeline,
+        });
+        setIsEditingGoals(true);
+    }
+
+    function cancelEditingGoals() {
+        setGoalDraft({
+            revenue: activeGoals.revenue,
+            pipeline: activeGoals.pipeline,
+        });
+        setIsEditingGoals(false);
+    }
+
+    function saveGoals() {
+        setMonthlyGoals((prev) => ({
+            ...prev,
+            [selectedMonthKey]: {
+                revenue: Math.max(0, goalDraft.revenue || 0),
+                pipeline: Math.max(0, goalDraft.pipeline || 0),
+            },
+        }));
+        setIsEditingGoals(false);
+    }
+
     return (
         <div className="space-y-8">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -459,9 +550,18 @@ export default function RevenuePage() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button variant="secondary" onClick={() => { }}>
-                        Date range
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="secondary" onClick={goToPreviousMonth}>
+                        Prev month
+                    </Button>
+                    <div className="rounded-xl border border-border/70 px-3 py-2 text-sm text-foreground">
+                        {getMonthLabel(selectedMonth)}
+                    </div>
+                    <Button variant="secondary" onClick={goToNextMonth}>
+                        Next month
+                    </Button>
+                    <Button variant="secondary" onClick={startEditingGoals}>
+                        Edit goals
                     </Button>
                     <Button variant="primary" onClick={openNewNote}>
                         Add revenue note
@@ -471,13 +571,26 @@ export default function RevenuePage() {
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <Card className="p-5">
-                    <div className="text-xs font-medium text-muted-foreground">Monthly goal</div>
-                    <div className="mt-2 text-2xl font-semibold tracking-tight">
-                        {formatMoney(monthlyGoal)}
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Monthly goal
+                            </div>
+                            <div className="mt-2 text-2xl font-semibold tracking-tight">
+                                {formatMoney(monthlyGoal)}
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Revenue target for {getMonthLabel(selectedMonth)}.
+                            </p>
+                        </div>
+
+                        {!isEditingGoals ? (
+                            <Button variant="secondary" onClick={startEditingGoals}>
+                                Edit
+                            </Button>
+                        ) : null}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Revenue target for the current month.
-                    </p>
+
                     <div className="mt-4">
                         <MiniProgress
                             value={currentMonth.total}
@@ -486,6 +599,58 @@ export default function RevenuePage() {
                             hint="Goal progress"
                         />
                     </div>
+
+                    {isEditingGoals ? (
+                        <div className="mt-4 space-y-3 rounded-2xl border border-border/70 p-4">
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                    Revenue goal
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={goalDraft.revenue}
+                                    onChange={(e) =>
+                                        setGoalDraft((prev) => ({
+                                            ...prev,
+                                            revenue: Number(e.target.value),
+                                        }))
+                                    }
+                                    className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm outline-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                    Pipeline goal
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={goalDraft.pipeline}
+                                    onChange={(e) =>
+                                        setGoalDraft((prev) => ({
+                                            ...prev,
+                                            pipeline: Number(e.target.value),
+                                        }))
+                                    }
+                                    className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm outline-none"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                                <Button variant="primary" onClick={saveGoals}>
+                                    Save goals
+                                </Button>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                                <Button variant="secondary" onClick={cancelEditingGoals}>
+                                    Cancel
+                                </Button>
+
+                            </div>
+                        </div>
+                    ) : null}
                 </Card>
 
                 <Card className="p-5">
@@ -556,7 +721,7 @@ export default function RevenuePage() {
                         </div>
                         <div className="text-right">
                             <div className="text-xs font-medium text-muted-foreground">
-                                This month
+                                Selected month
                             </div>
                             <div className="mt-1 text-lg font-semibold tracking-tight">
                                 {formatMoney(currentMonth.total)}
@@ -567,9 +732,11 @@ export default function RevenuePage() {
                     <div className="mt-6">
                         <BarChart
                             data={trend.map((m) => ({
+                                key: m.key,
                                 label: m.label,
                                 total: m.total,
                             }))}
+                            activeKey={selectedMonthKey}
                         />
                     </div>
                 </Card>
@@ -726,14 +893,16 @@ export default function RevenuePage() {
 
                         <div className="rounded-2xl border border-border/70 p-4">
                             <div className="text-xs font-medium text-muted-foreground">
-                                Revenue notes pipeline
+                                Pipeline target progress
                             </div>
-                            <div className="mt-2 text-2xl font-semibold">
-                                {formatMoney(pipelineNotesValue)}
+                            <div className="mt-2">
+                                <MiniProgress
+                                    value={totalPipelineValue}
+                                    total={pipelineGoal}
+                                    label={`${formatMoney(totalPipelineValue)} in pipeline`}
+                                    hint={`Goal: ${formatMoney(pipelineGoal)}`}
+                                />
                             </div>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Discovery and review-stage revenue notes.
-                            </p>
                         </div>
                     </div>
                 </Card>
