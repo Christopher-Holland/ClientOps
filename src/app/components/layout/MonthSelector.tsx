@@ -40,40 +40,26 @@ export function MonthSelector() {
     };
 
     return (
-        <div className="mt-2 rounded-2xl border border-border/70 bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <div className="grid grid-cols-3 items-center">
-                <div />
-
-                <div className="flex items-center justify-center gap-3">
-                    <Button variant="secondary" onClick={handlePrevMonth}>
-                        Previous
-                    </Button>
-
-                    <div className="min-w-[170px] text-center">
-                        <p className="text-base font-semibold text-foreground">
-                            {monthYear}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            View work due this month
-                        </p>
-                    </div>
-
-                    <Button variant="secondary" onClick={handleNextMonth}>
-                        Next
-                    </Button>
-                </div>
-
-                <div className="flex justify-end">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleResetMonth}
-                        disabled={isCurrentMonth}
-                    >
-                        Current Month
-                    </Button>
-                </div>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
+            <Button variant="secondary" onClick={handlePrevMonth}>
+                Previous
+            </Button>
+            <div className="flex min-w-[160px] flex-col items-center gap-0.5">
+                <span className="text-sm font-semibold tracking-tight text-foreground">
+                    {monthYear}
+                </span>
+                <Button
+                    variant="ghost"
+                    className="min-h-0 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={handleResetMonth}
+                    disabled={isCurrentMonth}
+                >
+                    Current Month
+                </Button>
             </div>
+            <Button variant="secondary" onClick={handleNextMonth}>
+                Next
+            </Button>
         </div>
     );
 }
