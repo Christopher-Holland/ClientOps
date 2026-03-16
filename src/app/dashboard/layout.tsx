@@ -2,6 +2,7 @@ import { Sidebar } from "../components/layout/Sidebar";
 import { Topbar } from "../components/layout/Topbar";
 import { MobileNav } from "../components/layout/MobileNav";
 import { DashboardGuard } from "../components/auth/DashboardGuard";
+import { MonthSelector } from "../components/layout/MonthSelector";
 
 export default function DashboardLayout({
     children,
@@ -19,6 +20,7 @@ export default function DashboardLayout({
                     {/* Main column */}
                     <div className="min-w-0 flex-1">
                         <Topbar />
+                        <MonthSelector />
 
                         {/* Content frame */}
                         <div className="mt-6 rounded-2xl border border-border/70 bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] sm:p-6">
