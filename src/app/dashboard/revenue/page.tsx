@@ -318,6 +318,9 @@ type NoteEditorMode = "new" | "edit" | null;
 export default function RevenuePage() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [notes, setNotes] = useState<RevenueNote[]>([]);
+    const [monthlyGoals, setMonthlyGoals] = useState<
+        Record<string, { revenue: number; pipeline: number }>
+    >({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -345,11 +348,25 @@ export default function RevenuePage() {
         }
     }, []);
 
+    const fetchGoals = useCallback(async () => {
+        try {
+            const res = await fetch("/api/revenue-goals", { credentials: "include" });
+            if (res.ok) {
+                const data = await res.json();
+                setMonthlyGoals(data);
+            }
+        } catch {
+            // Goals load failure is non-blocking; use defaults
+        }
+    }, []);
+
     useEffect(() => {
         setLoading(true);
         setError(null);
-        Promise.all([fetchProjects(), fetchNotes()]).finally(() => setLoading(false));
-    }, [fetchProjects, fetchNotes]);
+        Promise.all([fetchProjects(), fetchNotes(), fetchGoals()]).finally(() =>
+            setLoading(false)
+        );
+    }, [fetchProjects, fetchNotes, fetchGoals]);
 
     const [noteEditorOpen, setNoteEditorOpen] = useState(false);
     const [noteEditorMode, setNoteEditorMode] = useState<NoteEditorMode>(null);
@@ -359,18 +376,6 @@ export default function RevenuePage() {
     const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
     const [selectedMonth, setSelectedMonth] = useState(() => new Date());
-
-    const [monthlyGoals, setMonthlyGoals] = useState<
-        Record<string, { revenue: number; pipeline: number }>
-    >(() => {
-        const currentKey = getMonthKey(new Date());
-        return {
-            [currentKey]: {
-                revenue: 5000,
-                pipeline: 8000,
-            },
-        };
-    });
 
     const [goalDraft, setGoalDraft] = useState({
         revenue: 5000,
@@ -556,15 +561,30 @@ export default function RevenuePage() {
         setIsEditingGoals(false);
     }
 
-    function saveGoals() {
-        setMonthlyGoals((prev) => ({
-            ...prev,
-            [selectedMonthKey]: {
-                revenue: Math.max(0, goalDraft.revenue || 0),
-                pipeline: Math.max(0, goalDraft.pipeline || 0),
-            },
-        }));
-        setIsEditingGoals(false);
+    async function saveGoals() {
+        const revenue = Math.max(0, goalDraft.revenue || 0);
+        const pipeline = Math.max(0, goalDraft.pipeline || 0);
+        try {
+            const res = await fetch("/api/revenue-goals", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    monthKey: selectedMonthKey,
+                    revenue,
+                    pipeline,
+                }),
+                credentials: "include",
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to save goals");
+            setMonthlyGoals((prev) => ({
+                ...prev,
+                [selectedMonthKey]: { revenue, pipeline },
+            }));
+            setIsEditingGoals(false);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to save goals");
+        }
     }
 
     return (
@@ -647,11 +667,11 @@ export default function RevenuePage() {
                                 <input
                                     type="number"
                                     min={0}
-                                    value={goalDraft.revenue}
+                                    value={goalDraft.revenue ?? ""}
                                     onChange={(e) =>
                                         setGoalDraft((prev) => ({
                                             ...prev,
-                                            revenue: Number(e.target.value),
+                                            revenue: e.target.value === "" ? 0 : Number(e.target.value) || 0,
                                         }))
                                     }
                                     className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm outline-none"
@@ -665,11 +685,11 @@ export default function RevenuePage() {
                                 <input
                                     type="number"
                                     min={0}
-                                    value={goalDraft.pipeline}
+                                    value={goalDraft.pipeline ?? ""}
                                     onChange={(e) =>
                                         setGoalDraft((prev) => ({
                                             ...prev,
-                                            pipeline: Number(e.target.value),
+                                            pipeline: e.target.value === "" ? 0 : Number(e.target.value) || 0,
                                         }))
                                     }
                                     className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm outline-none"
