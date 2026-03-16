@@ -46,7 +46,7 @@ function StatusPill({ status }: { status: ProjectStatus }) {
   );
 }
 
-function newProjectDraft(): Project {
+function newProjectDraft(defaultStatus: ProjectStatus = "Discovery"): Project {
   return {
     id: `p_${Math.random().toString(36).slice(2, 10)}`,
     name: "",
@@ -54,7 +54,7 @@ function newProjectDraft(): Project {
     pricingType: "fixed",
     amount: 0,
     hoursInvested: undefined,
-    status: "Discovery",
+    status: defaultStatus,
     due: "",
     next: "",
   };
@@ -64,6 +64,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [defaultProjectStatus, setDefaultProjectStatus] = useState<ProjectStatus>("Discovery");
 
   const searchParams = useSearchParams();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -74,16 +75,29 @@ export default function ProjectsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/projects", { credentials: "include" });
-      if (!res.ok) {
-        if (res.status === 401) {
+      const [projectsRes, settingsRes] = await Promise.all([
+        fetch("/api/projects", { credentials: "include" }),
+        fetch("/api/settings", { credentials: "include" }),
+      ]);
+      if (projectsRes.ok) {
+        const data = await projectsRes.json();
+        setProjects(data);
+      }
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        const status = settings.settings?.defaultProjectStatus;
+        if (status && ["Discovery", "Build", "Review", "Live"].includes(status)) {
+          setDefaultProjectStatus(status);
+        }
+      }
+      if (!projectsRes.ok) {
+        if (projectsRes.status === 401) {
           setError("Please sign in to view projects.");
+          setProjects([]);
           return;
         }
         throw new Error("Failed to load projects");
       }
-      const data = await res.json();
-      setProjects(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load projects");
       setProjects([]);
@@ -110,7 +124,7 @@ export default function ProjectsPage() {
     return projects.find((p) => p.id === editingId) ?? null;
   }, [projects, editingId]);
 
-  const editorProject = editingProject ?? newProjectDraft();
+  const editorProject = editingProject ?? newProjectDraft(defaultProjectStatus);
   const isEdit = Boolean(editingProject);
 
   const [filters, setFilters] = useState<ProjectFilters>({

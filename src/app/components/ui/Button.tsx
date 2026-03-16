@@ -10,6 +10,7 @@ type Props = {
     variant?: Variant;
     className?: string;
     type?: "button" | "submit" | "reset";
+    disabled?: boolean;
 };
 
 function baseClasses() {
@@ -35,6 +36,7 @@ export function Button({
     variant = "primary",
     className = "",
     type = "button",
+    disabled = false,
 }: Props) {
     const classes = `${baseClasses()} ${variantClasses(variant)} ${className}`;
 
@@ -63,7 +65,7 @@ export function Button({
     }
 
     return (
-        <button type={type} onClick={onClick} className={classes}>
+        <button type={type} onClick={onClick} className={classes} disabled={disabled}>
             {children}
         </button>
     );

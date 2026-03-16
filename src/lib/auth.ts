@@ -6,6 +6,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  role: string | null;
 };
 
 /**
@@ -53,5 +54,6 @@ export async function getAuthUser(
     id: user.id,
     email: user.email,
     name: user.name,
+    role: user.role,
   };
 }
