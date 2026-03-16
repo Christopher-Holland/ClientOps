@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
@@ -61,46 +61,40 @@ function newProjectDraft(): Project {
 }
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: "p_clientops_mvp",
-      name: "ClientOps MVP",
-      client: "Internal",
-      pricingType: "fixed",
-      amount: 10000,
-      hoursInvested: 40,
-      status: "Build",
-      due: "Mar 15",
-      next: "Implement Clients table + detail",
-    },
-    {
-      id: "p_portfolio_refresh",
-      name: "Portfolio Refresh",
-      client: "Chris Holland",
-      pricingType: "fixed",
-      amount: 500,
-      hoursInvested: 6,
-      status: "Live",
-      due: "—",
-      next: "Replace My Ledger with ClientOps",
-    },
-    {
-      id: "p_oliver_refresh",
-      name: "Oliver Site Refresh",
-      client: "Oliver",
-      pricingType: "hourly",
-      amount: 75,
-      hoursInvested: 8,
-      status: "Review",
-      due: "Mar 6",
-      next: "Review final copy + deploy",
-    },
-  ]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const hasOpenedFromParam = useRef(false);
+
+  const fetchProjects = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/projects", { credentials: "include" });
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Please sign in to view projects.");
+          return;
+        }
+        throw new Error("Failed to load projects");
+      }
+      const data = await res.json();
+      setProjects(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load projects");
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   useEffect(() => {
     if (searchParams.get("new") === "1" && !hasOpenedFromParam.current) {
@@ -132,9 +126,7 @@ export default function ProjectsPage() {
 
     if (filters.project.trim()) {
       const q = filters.project.toLowerCase().trim();
-      result = result.filter((p) =>
-        p.name.toLowerCase().includes(q)
-      );
+      result = result.filter((p) => p.name.toLowerCase().includes(q));
     }
     if (filters.client) {
       result = result.filter((p) => p.client === filters.client);
@@ -193,30 +185,50 @@ export default function ProjectsPage() {
     setEditingId(null);
   }
 
-  function handleDelete(id: string) {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    closeEditor();
+  async function handleDelete(id: string) {
+    try {
+      const res = await fetch(`/api/projects/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+      closeEditor();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete project");
+    }
   }
 
-  function handleSave(patch: Partial<Project>) {
+  async function handleSave(patch: Partial<Project>) {
     if (isEdit && editingProject) {
-      setProjects((prev) =>
-        prev.map((p) => (p.id === editingProject.id ? { ...p, ...patch } : p))
-      );
-      setEditorOpen(false);
+      try {
+        const res = await fetch(`/api/projects/${editingProject.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to save");
+        const updated = await res.json();
+        setProjects((prev) => prev.map((p) => (p.id === editingProject.id ? updated : p)));
+        closeEditor();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save project");
+      }
       return;
     }
 
-    // Create
-    const created: Project = {
-      ...editorProject,
-      ...patch,
-      // Ensure id stays stable for this create action
-      id: editorProject.id,
-    };
-
-    setProjects((prev) => [created, ...prev]);
-    setEditorOpen(false);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...editorProject, ...patch }),
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to create");
+      setProjects((prev) => [data, ...prev]);
+      closeEditor();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create project");
+    }
   }
 
   return (
@@ -247,36 +259,52 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+
       <Card className="p-0">
         {/* Mobile: card list */}
         <div className="space-y-0 md:hidden">
-          {filteredAndSortedProjects.map((p) => {
-            const r = effectiveRate(p);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => openEdit(p.id)}
-                className="w-full text-left border-t border-border/70 p-4 first:border-t-0 hover:bg-surface/60 transition"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="font-medium text-foreground">{p.name}</span>
-                  <StatusPill status={p.status} />
-                </div>
-                <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-                  <span>Client: {p.client}</span>
-                  <span>Pricing: {formatPricing(p)}</span>
-                  <span>Due: {p.due}</span>
-                  <span>{p.next}</span>
-                  {r ? (
-                    <span className="text-xs text-muted-foreground">
-                      Effective rate: {formatMoney(r)}/hr
-                    </span>
-                  ) : null}
-                </div>
-              </button>
-            );
-          })}
+          {loading ? (
+            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+              Loading projects…
+            </div>
+          ) : filteredAndSortedProjects.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+              No projects yet. Create one to get started.
+            </div>
+          ) : (
+            filteredAndSortedProjects.map((p) => {
+              const r = effectiveRate(p);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => openEdit(p.id)}
+                  className="w-full text-left border-t border-border/70 p-4 first:border-t-0 hover:bg-surface/60 transition"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="font-medium text-foreground">{p.name}</span>
+                    <StatusPill status={p.status} />
+                  </div>
+                  <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                    <span>Client: {p.client}</span>
+                    <span>Pricing: {formatPricing(p)}</span>
+                    <span>Due: {p.due}</span>
+                    <span>{p.next}</span>
+                    {r ? (
+                      <span className="text-xs text-muted-foreground">
+                        Effective rate: {formatMoney(r)}/hr
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
 
         {/* Desktop: table */}
@@ -293,32 +321,46 @@ export default function ProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredAndSortedProjects.map((p) => {
-                const r = effectiveRate(p);
-                return (
-                  <tr
-                    key={p.id}
-                    onClick={() => openEdit(p.id)}
-                    className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
-                  >
-                    <td className="px-5 py-4 font-medium">{p.name}</td>
-                    <td className="px-5 py-4 text-muted-foreground">{p.client}</td>
-                    <td className="px-5 py-4 text-muted-foreground">{formatPricing(p)}</td>
-                    <td className="px-5 py-4">
-                      <StatusPill status={p.status} />
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">{p.due}</td>
-                    <td className="px-5 py-4">
-                      <div>{p.next}</div>
-                      {r ? (
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Effective rate: {formatMoney(r)}/hr
-                        </div>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
+                    Loading projects…
+                  </td>
+                </tr>
+              ) : filteredAndSortedProjects.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
+                    No projects yet. Create one to get started.
+                  </td>
+                </tr>
+              ) : (
+                filteredAndSortedProjects.map((p) => {
+                  const r = effectiveRate(p);
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => openEdit(p.id)}
+                      className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
+                    >
+                      <td className="px-5 py-4 font-medium">{p.name}</td>
+                      <td className="px-5 py-4 text-muted-foreground">{p.client}</td>
+                      <td className="px-5 py-4 text-muted-foreground">{formatPricing(p)}</td>
+                      <td className="px-5 py-4">
+                        <StatusPill status={p.status} />
+                      </td>
+                      <td className="px-5 py-4 text-muted-foreground">{p.due}</td>
+                      <td className="px-5 py-4">
+                        <div>{p.next}</div>
+                        {r ? (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Effective rate: {formatMoney(r)}/hr
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

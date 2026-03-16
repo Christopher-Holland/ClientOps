@@ -3,21 +3,6 @@
 import { useCallback } from "react";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
-import { loadClients } from "@/app/lib/store";
-
-// Seed data matching projects, billing, revenue pages (page-specific, no DB)
-const SEED_PROJECTS = [
-  { id: "p_clientops_mvp", name: "ClientOps MVP", client: "Internal", pricingType: "fixed" as const, amount: 10000, hoursInvested: 40, status: "Build" as const, due: "Mar 15", next: "Implement Clients table + detail" },
-  { id: "p_portfolio_refresh", name: "Portfolio Refresh", client: "Chris Holland", pricingType: "fixed" as const, amount: 500, hoursInvested: 6, status: "Live" as const, due: "—", next: "Replace My Ledger with ClientOps" },
-  { id: "p_oliver_refresh", name: "Oliver Site Refresh", client: "Oliver", pricingType: "hourly" as const, amount: 75, hoursInvested: 8, status: "Review" as const, due: "Mar 6", next: "Review final copy + deploy" },
-  { id: "p_maintenance_retainer", name: "Maintenance Retainer", client: "ACME Co.", pricingType: "retainer" as const, amount: 600, hoursInvested: undefined, status: "Live" as const, due: "—", next: "Monthly updates + support" },
-];
-
-const SEED_INVOICES = [
-  { id: "inv_oliver_001", client: "Oliver", project: "Site Refresh", amount: 500, status: "Sent" as const, issuedOn: "2026-03-01", dueOn: "2026-03-08", paidOn: "", notes: "Net 7." },
-  { id: "inv_internal_001", client: "Internal", project: "ClientOps MVP", amount: 1000, status: "Draft" as const, issuedOn: "2026-03-02", dueOn: "2026-03-15", paidOn: "", notes: "Placeholder." },
-  { id: "inv_portfolio_001", client: "Chris Holland", project: "Portfolio Refresh", amount: 500, status: "Paid" as const, issuedOn: "2026-02-20", dueOn: "2026-02-27", paidOn: "2026-02-22", notes: "Paid via transfer." },
-];
 
 function escapeCsvCell(val: string | number | undefined): string {
   if (val === undefined || val === null) return "";
@@ -49,21 +34,36 @@ function dueInCurrentMonth(due: string, yyyy: number, mm: number): boolean {
 }
 
 export default function SettingsPage() {
-  const handleExportCsv = useCallback(() => {
+  const handleExportCsv = useCallback(async () => {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = now.getMonth() + 1;
 
-    const clients = loadClients().filter(
+    let clients: Array<{ name: string; status: string; email?: string; lastContact?: string; nextAction?: string; notes?: string; createdAt: string; updatedAt: string }> = [];
+    let projects: Array<{ name: string; client: string; pricingType: string; amount: number; hoursInvested?: number; status: string; due: string; next: string }> = [];
+    let invoices: Array<{ client: string; project?: string; amount: number; status: string; issuedOn?: string; dueOn?: string; paidOn?: string; notes?: string }> = [];
+    try {
+      const [clientsRes, projectsRes, invoicesRes] = await Promise.all([
+        fetch("/api/clients", { credentials: "include" }),
+        fetch("/api/projects", { credentials: "include" }),
+        fetch("/api/invoices", { credentials: "include" }),
+      ]);
+      if (clientsRes.ok) clients = await clientsRes.json();
+      if (projectsRes.ok) projects = await projectsRes.json();
+      if (invoicesRes.ok) invoices = await invoicesRes.json();
+    } catch {
+      // fallback to empty
+    }
+    clients = clients.filter(
       (c) =>
         isInCurrentMonth(c.createdAt, yyyy, mm) ||
         isInCurrentMonth(c.updatedAt, yyyy, mm) ||
         isInCurrentMonth(c.lastContact, yyyy, mm)
     );
 
-    const projects = SEED_PROJECTS.filter((p) => dueInCurrentMonth(p.due, yyyy, mm));
+    projects = projects.filter((p) => dueInCurrentMonth(p.due, yyyy, mm));
 
-    const invoices = SEED_INVOICES.filter(
+    invoices = invoices.filter(
       (i) =>
         isInCurrentMonth(i.issuedOn, yyyy, mm) ||
         isInCurrentMonth(i.dueOn, yyyy, mm) ||
@@ -82,14 +82,14 @@ export default function SettingsPage() {
 
     rows.push("PROJECTS");
     rows.push("Name,Client,Pricing Type,Amount,Hours Invested,Status,Due,Next");
-    revenueProjects.forEach((p) => {
+    revenueProjects.forEach((p: { name: string; client: string; pricingType: string; amount: number; hoursInvested?: number; status: string; due: string; next: string }) => {
       rows.push([p.name, p.client, p.pricingType, p.amount, p.hoursInvested ?? "", p.status, p.due, p.next].map(escapeCsvCell).join(","));
     });
     rows.push("");
 
     rows.push("BILLING");
     rows.push("Client,Project,Amount,Status,Issued On,Due On,Paid On,Notes");
-    invoices.forEach((i) => {
+    invoices.forEach((i: { client: string; project?: string; amount: number; status: string; issuedOn?: string; dueOn?: string; paidOn?: string; notes?: string }) => {
       rows.push([i.client, i.project ?? "", i.amount, i.status, i.issuedOn ?? "", i.dueOn ?? "", i.paidOn ?? "", i.notes ?? ""].map(escapeCsvCell).join(","));
     });
     rows.push("");

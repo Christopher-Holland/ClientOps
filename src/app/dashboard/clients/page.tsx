@@ -5,15 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
-import {
-  Client,
-  ClientStatus,
-  createClient,
-  loadClients,
-  saveClients,
-  seedClients,
-  updateClient,
-} from "@/app/lib/store";
+import type { Client, ClientStatus } from "@/app/lib/store";
 import { ClientEditor } from "@/app/components/clients/ClientEditor";
 
 function StatusPill({ status }: { status: ClientStatus }) {
@@ -34,21 +26,56 @@ function StatusPill({ status }: { status: ClientStatus }) {
 export default function ClientsPage() {
   const searchParams = useSearchParams();
   const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [isNewlyCreated, setIsNewlyCreated] = useState(false);
   const hasOpenedFromParam = useRef(false);
 
-  const onNewClient = useCallback(() => {
-    const c = createClient({ name: "New client", status: "Lead" });
-    setClients((prev) => {
-      const next = [c, ...prev];
-      saveClients(next);
-      return next;
-    });
-    setSelectedId(c.id);
-    setIsNewlyCreated(true);
-    setOpen(true);
+  const fetchClients = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/clients", { credentials: "include" });
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Please sign in to view clients.");
+          return;
+        }
+        throw new Error("Failed to load clients");
+      }
+      const data = await res.json();
+      setClients(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load clients");
+      setClients([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  const onNewClient = useCallback(async () => {
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "New client", status: "Lead" }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to create client");
+      const c = await res.json();
+      setClients((prev) => [c, ...prev]);
+      setSelectedId(c.id);
+      setIsNewlyCreated(true);
+      setOpen(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create client");
+    }
   }, []);
 
   useEffect(() => {
@@ -59,26 +86,10 @@ export default function ClientsPage() {
     }
   }, [searchParams, onNewClient]);
 
-  useEffect(() => {
-    const loaded = loadClients();
-    if (loaded.length === 0) {
-      const seeded = seedClients();
-      setClients(seeded);
-      saveClients(seeded);
-      return;
-    }
-    setClients(loaded);
-  }, []);
-
   const selected = useMemo(
     () => clients.find((c) => c.id === selectedId) ?? null,
     [clients, selectedId]
   );
-
-  function persist(next: Client[]) {
-    setClients(next);
-    saveClients(next);
-  }
 
   function onRowClick(id: string) {
     setSelectedId(id);
@@ -86,19 +97,48 @@ export default function ClientsPage() {
     setOpen(true);
   }
 
-  function handleDelete(id: string) {
-    persist(clients.filter((c) => c.id !== id));
-    setOpen(false);
-    setSelectedId(null);
+  async function handleDelete(id: string) {
+    try {
+      const res = await fetch(`/api/clients/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setClients((prev) => prev.filter((c) => c.id !== id));
+      setOpen(false);
+      setSelectedId(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete client");
+    }
   }
 
-  function onSave(patch: Partial<Client>) {
+  async function onSave(patch: Partial<Client>) {
     if (!selected) return;
-    const next = clients.map((c) =>
-      c.id === selected.id ? updateClient(c, patch) : c
-    );
-    persist(next);
-    setOpen(false);
+    try {
+      const res = await fetch(`/api/clients/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updated = await res.json();
+      setClients((prev) =>
+        prev.map((c) => (c.id === selected.id ? updated : c))
+      );
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save client");
+    }
+  }
+
+  function handleExport() {
+    const blob = new Blob([JSON.stringify(clients, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clients-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -116,12 +156,7 @@ export default function ClientsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => {
-              saveClients(clients);
-            }}
-            variant="secondary"
-          >
+          <Button onClick={handleExport} variant="secondary">
             Export
           </Button>
           <Button onClick={onNewClient} variant="primary">
@@ -129,6 +164,12 @@ export default function ClientsPage() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
 
       <Card className="p-0">
         <div className="overflow-x-auto">
@@ -142,22 +183,36 @@ export default function ClientsPage() {
               </tr>
             </thead>
             <tbody>
-              {clients.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
-                  onClick={() => onRowClick(c.id)}
-                >
-                  <td className="px-5 py-4 font-medium">{c.name}</td>
-                  <td className="px-5 py-4">
-                    <StatusPill status={c.status} />
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">
+                    Loading clients…
                   </td>
-                  <td className="px-5 py-4 text-muted-foreground">
-                    {c.lastContact || "—"}
-                  </td>
-                  <td className="px-5 py-4">{c.nextAction || "—"}</td>
                 </tr>
-              ))}
+              ) : clients.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">
+                    No clients yet. Create one to get started.
+                  </td>
+                </tr>
+              ) : (
+                clients.map((c) => (
+                  <tr
+                    key={c.id}
+                    className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"
+                    onClick={() => onRowClick(c.id)}
+                  >
+                    <td className="px-5 py-4 font-medium">{c.name}</td>
+                    <td className="px-5 py-4">
+                      <StatusPill status={c.status as ClientStatus} />
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      {c.lastContact || "—"}
+                    </td>
+                    <td className="px-5 py-4">{c.nextAction || "—"}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

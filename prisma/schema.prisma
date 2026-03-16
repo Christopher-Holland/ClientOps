@@ -30,17 +30,19 @@ enum InvoiceStatus {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  stackUserId String?  @unique
+  email       String    @unique
+  name        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  clients   Client[]
-  projects  Project[]
-  tasks     Task[]
-  invoices  Invoice[]
-  notes     Note[]
+  clients      Client[]
+  projects     Project[]
+  tasks        Task[]
+  invoices     Invoice[]
+  notes        Note[]
+  revenueNotes RevenueNote[]
 }
 
 model Client {
@@ -52,6 +54,9 @@ model Client {
   phone       String?
   website     String?
   status      String?
+  lastContact DateTime?
+  nextAction  String?
+  notesText   String?
   hourlyRate  Decimal?  @db.Decimal(10, 2)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -65,16 +70,19 @@ model Client {
 }
 
 model Project {
-  id           String        @id @default(cuid())
-  userId       String
-  clientId     String
-  name         String
-  description  String?
-  status       ProjectStatus @default(LEAD)
-  budget       Decimal?      @db.Decimal(10, 2)
-  dueDate      DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  userId         String
+  clientId       String
+  name           String
+  description    String?
+  status         ProjectStatus @default(LEAD)
+  budget         Decimal?      @db.Decimal(10, 2)
+  dueDate        DateTime?
+  pricingType    String?       // fixed, hourly, retainer
+  hoursInvested  Float?
+  nextAction     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -109,6 +117,8 @@ model Invoice {
   id          String        @id @default(cuid())
   userId      String
   clientId    String
+  projectId   String?
+  projectName String?
   invoiceNo   String        @unique
   status      InvoiceStatus @default(DRAFT)
   amount      Decimal       @db.Decimal(10, 2)
@@ -124,6 +134,25 @@ model Invoice {
 
   @@index([userId])
   @@index([clientId])
+}
+
+model RevenueNote {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  clientName    String
+  status        String   // Discovery, Build, Review, Live
+  pricingType   String   // fixed, hourly, retainer
+  amount        Decimal  @db.Decimal(10, 2)
+  hoursInvested Float?
+  date          DateTime
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Note {

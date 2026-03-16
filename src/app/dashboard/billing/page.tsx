@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -16,7 +16,6 @@ function formatMoney(n: number) {
 }
 
 function parseYMD(s?: string) {
-  // Expect "YYYY-MM-DD"
   if (!s) return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
   if (!m) return null;
@@ -66,47 +65,52 @@ function newInvoiceDraft(): Invoice {
 }
 
 export default function BillingPage() {
-  // Using UTC "today" to keep comparisons consistent in v0
   const todayUTC = useMemo(() => {
     const now = new Date();
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   }, []);
 
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    {
-      id: "inv_oliver_001",
-      client: "Oliver",
-      project: "Site Refresh",
-      amount: 500,
-      status: "Sent",
-      issuedOn: "2026-03-01",
-      dueOn: "2026-03-08",
-      notes: "Net 7. Follow up if not paid by due date.",
-    },
-    {
-      id: "inv_internal_001",
-      client: "Internal",
-      project: "ClientOps MVP",
-      amount: 1000,
-      status: "Draft",
-      issuedOn: "2026-03-02",
-      dueOn: "2026-03-15",
-      notes: "Placeholder internal invoice record.",
-    },
-    {
-      id: "inv_portfolio_001",
-      client: "Chris Holland",
-      project: "Portfolio Refresh",
-      amount: 500,
-      status: "Paid",
-      issuedOn: "2026-02-20",
-      dueOn: "2026-02-27",
-      paidOn: "2026-02-22",
-      notes: "Paid via transfer.",
-    },
-  ]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Auto-tag overdue for display (does NOT mutate status)
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const fetchInvoices = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/invoices", { credentials: "include" });
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Please sign in to view invoices.");
+          return;
+        }
+        throw new Error("Failed to load invoices");
+      }
+      const data = await res.json();
+      setInvoices(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load invoices");
+      setInvoices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
+
+  const editingInvoice = useMemo(() => {
+    if (!editingId) return null;
+    return invoices.find((i) => i.id === editingId) ?? null;
+  }, [invoices, editingId]);
+
+  const editorInvoice = editingInvoice ?? newInvoiceDraft();
+  const isEdit = Boolean(editingInvoice);
+
   const decorated = useMemo(() => {
     return invoices.map((inv) => {
       const overdue = isOverdue(inv, todayUTC);
@@ -126,7 +130,6 @@ export default function BillingPage() {
       .filter((i) => i._displayStatus === "Overdue")
       .reduce((sum, i) => sum + i.amount, 0);
 
-    // Collected "this month" (simple v0: match paidOn month to todayUTC month)
     const collected = decorated
       .filter((i) => i._displayStatus === "Paid")
       .filter((i) => {
@@ -141,17 +144,6 @@ export default function BillingPage() {
 
     return { outstanding, overdue, collected };
   }, [decorated, todayUTC]);
-
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const editingInvoice = useMemo(() => {
-    if (!editingId) return null;
-    return invoices.find((i) => i.id === editingId) ?? null;
-  }, [invoices, editingId]);
-
-  const editorInvoice = editingInvoice ?? newInvoiceDraft();
-  const isEdit = Boolean(editingInvoice);
 
   const [filters, setFilters] = useState<InvoiceFilters>({
     client: "",
@@ -219,37 +211,71 @@ export default function BillingPage() {
     setEditingId(null);
   }
 
-  function handleDelete(id: string) {
-    setInvoices((prev) => prev.filter((i) => i.id !== id));
-    closeEditor();
+  async function handleDelete(id: string) {
+    try {
+      const res = await fetch(`/api/invoices/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setInvoices((prev) => prev.filter((i) => i.id !== id));
+      closeEditor();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete invoice");
+    }
   }
 
-  function handleSave(patch: Partial<Invoice>) {
+  async function handleSave(patch: Partial<Invoice>) {
     if (isEdit && editingInvoice) {
-      setInvoices((prev) =>
-        prev.map((i) => (i.id === editingInvoice.id ? { ...i, ...patch } : i))
-      );
-      setEditorOpen(false);
+      try {
+        const res = await fetch(`/api/invoices/${editingInvoice.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to save");
+        const updated = await res.json();
+        setInvoices((prev) => prev.map((i) => (i.id === editingInvoice.id ? updated : i)));
+        closeEditor();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save invoice");
+      }
       return;
     }
 
-    const created: Invoice = { ...editorInvoice, ...patch, id: editorInvoice.id };
-    setInvoices((prev) => [created, ...prev]);
-    setEditorOpen(false);
+    try {
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...editorInvoice, ...patch }),
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to create");
+      setInvoices((prev) => [data, ...prev]);
+      closeEditor();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create invoice");
+    }
   }
 
-  function markPaid(id: string) {
-    // v0 sets paidOn to "today" in YYYY-MM-DD (UTC)
+  async function markPaid(id: string) {
     const y = todayUTC.getUTCFullYear();
     const m = String(todayUTC.getUTCMonth() + 1).padStart(2, "0");
     const d = String(todayUTC.getUTCDate()).padStart(2, "0");
     const todayStr = `${y}-${m}-${d}`;
 
-    setInvoices((prev) =>
-      prev.map((i) =>
-        i.id === id ? { ...i, status: "Paid", paidOn: i.paidOn || todayStr } : i
-      )
-    );
+    try {
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Paid", paidOn: todayStr }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to mark paid");
+      const updated = await res.json();
+      setInvoices((prev) => prev.map((i) => (i.id === id ? updated : i)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to mark paid");
+    }
   }
 
   return (
@@ -279,6 +305,12 @@ export default function BillingPage() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -331,93 +363,117 @@ export default function BillingPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredAndSortedInvoices.map((inv) => (
-                <tr
-                  key={inv.id}
-                  className="border-t border-border/70 hover:bg-surface/60 transition"
-                >
-                  <td
-                    className="px-5 py-4 font-medium cursor-pointer"
-                    onClick={() => openEdit(inv.id)}
-                  >
-                    {inv.client}
-                  </td>
-                  <td
-                    className="px-5 py-4 text-muted-foreground cursor-pointer"
-                    onClick={() => openEdit(inv.id)}
-                  >
-                    {inv.project || "—"}
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">
-                    {formatMoney(inv.amount)}
-                  </td>
-                  <td className="px-5 py-4">
-                    <StatusPill status={inv._displayStatus} />
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">{inv.issuedOn || "—"}</td>
-                  <td className="px-5 py-4 text-muted-foreground">{inv.dueOn || "—"}</td>
-                  <td className="px-5 py-4">
-                    {inv._displayStatus !== "Paid" ? (
-                      <button
-                        type="button"
-                        onClick={() => markPaid(inv.id)}
-                        className="rounded-xl px-3 py-2 text-xs font-medium text-foreground border border-border/70 hover:bg-surface-hover transition"
-                      >
-                        Mark paid
-                      </button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Paid {inv.paidOn ? `(${inv.paidOn})` : ""}
-                      </span>
-                    )}
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">
+                    Loading invoices…
                   </td>
                 </tr>
-              ))}
+              ) : filteredAndSortedInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">
+                    No invoices yet. Create one to get started.
+                  </td>
+                </tr>
+              ) : (
+                filteredAndSortedInvoices.map((inv) => (
+                  <tr
+                    key={inv.id}
+                    className="border-t border-border/70 hover:bg-surface/60 transition"
+                  >
+                    <td
+                      className="px-5 py-4 font-medium cursor-pointer"
+                      onClick={() => openEdit(inv.id)}
+                    >
+                      {inv.client}
+                    </td>
+                    <td
+                      className="px-5 py-4 text-muted-foreground cursor-pointer"
+                      onClick={() => openEdit(inv.id)}
+                    >
+                      {inv.project || "—"}
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      {formatMoney(inv.amount)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <StatusPill status={inv._displayStatus} />
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">{inv.issuedOn || "—"}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{inv.dueOn || "—"}</td>
+                    <td className="px-5 py-4">
+                      {inv._displayStatus !== "Paid" ? (
+                        <button
+                          type="button"
+                          onClick={() => markPaid(inv.id)}
+                          className="rounded-xl px-3 py-2 text-xs font-medium text-foreground border border-border/70 hover:bg-surface-hover transition"
+                        >
+                          Mark paid
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Paid {inv.paidOn ? `(${inv.paidOn})` : ""}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile list */}
         <div className="space-y-0 md:hidden">
-          {filteredAndSortedInvoices.map((inv) => (
-            <div
-              key={inv.id}
-              className="border-t border-border/70 p-4 first:border-t-0"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => openEdit(inv.id)}
-                  className="text-left"
-                >
-                  <div className="font-medium text-foreground">{inv.client}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {inv.project || "—"}
-                  </div>
-                </button>
-                <StatusPill status={inv._displayStatus} />
-              </div>
-
-              <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-                <span>Amount: {formatMoney(inv.amount)}</span>
-                <span>Issued: {inv.issuedOn || "—"}</span>
-                <span>Due: {inv.dueOn || "—"}</span>
-                {inv._displayStatus !== "Paid" ? (
+          {loading ? (
+            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+              Loading invoices…
+            </div>
+          ) : filteredAndSortedInvoices.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+              No invoices yet. Create one to get started.
+            </div>
+          ) : (
+            filteredAndSortedInvoices.map((inv) => (
+              <div
+                key={inv.id}
+                className="border-t border-border/70 p-4 first:border-t-0"
+              >
+                <div className="flex items-start justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => markPaid(inv.id)}
-                    className="mt-2 inline-flex w-fit rounded-xl px-3 py-2 text-xs font-medium text-foreground border border-border/70 hover:bg-surface-hover transition"
+                    onClick={() => openEdit(inv.id)}
+                    className="text-left"
                   >
-                    Mark paid
+                    <div className="font-medium text-foreground">{inv.client}</div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {inv.project || "—"}
+                    </div>
                   </button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    Paid {inv.paidOn ? `(${inv.paidOn})` : ""}
-                  </span>
-                )}
+                  <StatusPill status={inv._displayStatus} />
+                </div>
+
+                <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span>Amount: {formatMoney(inv.amount)}</span>
+                  <span>Issued: {inv.issuedOn || "—"}</span>
+                  <span>Due: {inv.dueOn || "—"}</span>
+                  {inv._displayStatus !== "Paid" ? (
+                    <button
+                      type="button"
+                      onClick={() => markPaid(inv.id)}
+                      className="mt-2 inline-flex w-fit rounded-xl px-3 py-2 text-xs font-medium text-foreground border border-border/70 hover:bg-surface-hover transition"
+                    >
+                      Mark paid
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Paid {inv.paidOn ? `(${inv.paidOn})` : ""}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Card>
 

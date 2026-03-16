@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -12,52 +12,6 @@ import {
     ProjectEditor,
     type Project,
 } from "@/app/components/projects/ProjectEditor";
-
-const initialProjects: Project[] = [
-    {
-        id: "p_clientops_mvp",
-        name: "ClientOps MVP",
-        client: "Internal",
-        pricingType: "fixed",
-        amount: 10000,
-        hoursInvested: 40,
-        status: "Build",
-        due: "Mar 15",
-        next: "Implement Clients table + detail",
-    },
-    {
-        id: "p_portfolio_refresh",
-        name: "Portfolio Refresh",
-        client: "Chris Holland",
-        pricingType: "fixed",
-        amount: 500,
-        hoursInvested: 6,
-        status: "Live",
-        due: "—",
-        next: "Replace My Ledger with ClientOps",
-    },
-    {
-        id: "p_oliver_refresh",
-        name: "Oliver Site Refresh",
-        client: "Oliver",
-        pricingType: "hourly",
-        amount: 75,
-        hoursInvested: 8,
-        status: "Review",
-        due: "Mar 6",
-        next: "Review final copy + deploy",
-    },
-    {
-        id: "p_maintenance_retainer",
-        name: "Maintenance Retainer",
-        client: "ACME Co.",
-        pricingType: "retainer",
-        amount: 600,
-        status: "Live",
-        due: "—",
-        next: "Monthly updates + support",
-    },
-];
 
 function formatMoney(
     n: number,
@@ -362,8 +316,40 @@ function MiniProgress({
 type NoteEditorMode = "new" | "edit" | null;
 
 export default function RevenuePage() {
-    const [projects, setProjects] = useState<Project[]>(initialProjects);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [notes, setNotes] = useState<RevenueNote[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchProjects = useCallback(async () => {
+        try {
+            const res = await fetch("/api/projects", { credentials: "include" });
+            if (!res.ok) throw new Error("Failed to load projects");
+            const data = await res.json();
+            setProjects(data);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to load projects");
+            setProjects([]);
+        }
+    }, []);
+
+    const fetchNotes = useCallback(async () => {
+        try {
+            const res = await fetch("/api/revenue-notes", { credentials: "include" });
+            if (!res.ok) throw new Error("Failed to load revenue notes");
+            const data = await res.json();
+            setNotes(data);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to load revenue notes");
+            setNotes([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        setLoading(true);
+        setError(null);
+        Promise.all([fetchProjects(), fetchNotes()]).finally(() => setLoading(false));
+    }, [fetchProjects, fetchNotes]);
 
     const [noteEditorOpen, setNoteEditorOpen] = useState(false);
     const [noteEditorMode, setNoteEditorMode] = useState<NoteEditorMode>(null);
@@ -456,23 +442,49 @@ export default function RevenuePage() {
         setActiveNote(null);
     }
 
-    function handleNoteSave(patch: Partial<RevenueNote>) {
+    async function handleNoteSave(patch: Partial<RevenueNote>) {
         if (!activeNote) return;
 
-        if (noteEditorMode === "edit") {
-            setNotes((prev) =>
-                prev.map((n) => (n.id === activeNote.id ? { ...n, ...patch } : n))
-            );
-        } else if (noteEditorMode === "new") {
-            setNotes((prev) => [{ ...activeNote, ...patch }, ...prev]);
+        try {
+            if (noteEditorMode === "edit") {
+                const res = await fetch(`/api/revenue-notes/${activeNote.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(patch),
+                    credentials: "include",
+                });
+                if (!res.ok) throw new Error("Failed to save");
+                const updated = await res.json();
+                setNotes((prev) => prev.map((n) => (n.id === activeNote.id ? updated : n)));
+            } else {
+                const res = await fetch("/api/revenue-notes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...activeNote, ...patch }),
+                    credentials: "include",
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || "Failed to create");
+                setNotes((prev) => [data, ...prev]);
+            }
+            closeNoteEditor();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to save revenue note");
         }
-
-        closeNoteEditor();
     }
 
-    function handleNoteDelete(id: string) {
-        setNotes((prev) => prev.filter((n) => n.id !== id));
-        closeNoteEditor();
+    async function handleNoteDelete(id: string) {
+        try {
+            const res = await fetch(`/api/revenue-notes/${id}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+            if (!res.ok) throw new Error("Failed to delete");
+            setNotes((prev) => prev.filter((n) => n.id !== id));
+            closeNoteEditor();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to delete revenue note");
+        }
     }
 
     function openEditProject(project: Project) {
@@ -485,18 +497,39 @@ export default function RevenuePage() {
         setEditingProjectId(null);
     }
 
-    function handleProjectSave(patch: Partial<Project>) {
+    async function handleProjectSave(patch: Partial<Project>) {
         if (isEditProject && editingProject) {
-            setProjects((prev) =>
-                prev.map((p) => (p.id === editingProject.id ? { ...p, ...patch } : p))
-            );
+            try {
+                const res = await fetch(`/api/projects/${editingProject.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(patch),
+                    credentials: "include",
+                });
+                if (!res.ok) throw new Error("Failed to save");
+                const updated = await res.json();
+                setProjects((prev) => prev.map((p) => (p.id === editingProject.id ? updated : p)));
+                closeProjectEditor();
+            } catch (e) {
+                setError(e instanceof Error ? e.message : "Failed to save project");
+            }
+        } else {
+            closeProjectEditor();
         }
-        closeProjectEditor();
     }
 
-    function handleProjectDelete(id: string) {
-        setProjects((prev) => prev.filter((p) => p.id !== id));
-        closeProjectEditor();
+    async function handleProjectDelete(id: string) {
+        try {
+            const res = await fetch(`/api/projects/${id}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+            if (!res.ok) throw new Error("Failed to delete");
+            setProjects((prev) => prev.filter((p) => p.id !== id));
+            closeProjectEditor();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to delete project");
+        }
     }
 
     function goToPreviousMonth() {
@@ -536,6 +569,11 @@ export default function RevenuePage() {
 
     return (
         <div className="space-y-8">
+            {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    {error}
+                </div>
+            )}
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <div className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
