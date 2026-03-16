@@ -84,7 +84,7 @@ export function TopbarSearch() {
     }
 
     function handleResultClick(item: SearchResult) {
-        console.log("Search result clicked:", item);
+        
         setOpen(false);
     }
 
