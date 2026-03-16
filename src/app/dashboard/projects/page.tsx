@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSelectedMonth, isDateInMonth } from "@/lib/month";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -67,6 +68,7 @@ export default function ProjectsPage() {
   const [defaultProjectStatus, setDefaultProjectStatus] = useState<ProjectStatus>("Discovery");
 
   const searchParams = useSearchParams();
+  const { year, month, isCurrentMonth } = useSelectedMonth();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const hasOpenedFromParam = useRef(false);
@@ -138,6 +140,13 @@ export default function ProjectsPage() {
   const filteredAndSortedProjects = useMemo(() => {
     let result = [...projects];
 
+    // Filter by selected month (due date)
+    result = result.filter((p) => {
+      const due = p.due?.trim();
+      if (!due || due === "—") return isCurrentMonth;
+      return isDateInMonth(due, year, month);
+    });
+
     if (filters.project.trim()) {
       const q = filters.project.toLowerCase().trim();
       result = result.filter((p) => p.name.toLowerCase().includes(q));
@@ -182,7 +191,7 @@ export default function ProjectsPage() {
     }
 
     return result;
-  }, [projects, filters, sortByDue]);
+  }, [projects, filters, sortByDue, year, month, isCurrentMonth]);
 
   function openNew() {
     setEditingId(null);

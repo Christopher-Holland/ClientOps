@@ -3,6 +3,7 @@ import { Topbar } from "../components/layout/Topbar";
 import { MobileNav } from "../components/layout/MobileNav";
 import { DashboardGuard } from "../components/auth/DashboardGuard";
 import { MonthSelector } from "../components/layout/MonthSelector";
+import { MonthProvider } from "../components/layout/MonthProvider";
 
 export default function DashboardLayout({
     children,
@@ -11,6 +12,7 @@ export default function DashboardLayout({
 }) {
     return (
         <DashboardGuard>
+        <MonthProvider>
         <div className="min-h-screen">
             {/* Outer container */}
             <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -36,6 +38,7 @@ export default function DashboardLayout({
             </div>
             <MobileNav />
         </div>
+        </MonthProvider>
         </DashboardGuard>
     );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSelectedMonth, isDateInMonth } from "@/lib/month";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -70,6 +71,7 @@ export default function BillingPage() {
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   }, []);
 
+  const { year, month, isCurrentMonth } = useSelectedMonth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +158,13 @@ export default function BillingPage() {
   const filteredAndSortedInvoices = useMemo(() => {
     let result = [...decorated];
 
+    // Filter by selected month (due date)
+    result = result.filter((i) => {
+      const due = i.dueOn?.trim();
+      if (!due) return isCurrentMonth;
+      return isDateInMonth(due, year, month);
+    });
+
     if (filters.client) {
       result = result.filter((i) => i.client === filters.client);
     }
@@ -194,7 +203,7 @@ export default function BillingPage() {
     }
 
     return result;
-  }, [decorated, filters, sortByDue]);
+  }, [decorated, filters, sortByDue, year, month, isCurrentMonth]);
 
   function openNew() {
     setEditingId(null);

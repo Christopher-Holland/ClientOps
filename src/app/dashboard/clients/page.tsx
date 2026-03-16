@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSelectedMonth, isDateInMonth } from "@/lib/month";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -25,6 +26,7 @@ function StatusPill({ status }: { status: ClientStatus }) {
 
 export default function ClientsPage() {
   const searchParams = useSearchParams();
+  const { year, month, isCurrentMonth } = useSelectedMonth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,9 +88,17 @@ export default function ClientsPage() {
     }
   }, [searchParams, onNewClient]);
 
+  const filteredClients = useMemo(() => {
+    return clients.filter((c) => {
+      const lastContact = c.lastContact?.trim();
+      if (!lastContact) return isCurrentMonth;
+      return isDateInMonth(lastContact, year, month);
+    });
+  }, [clients, year, month, isCurrentMonth]);
+
   const selected = useMemo(
-    () => clients.find((c) => c.id === selectedId) ?? null,
-    [clients, selectedId]
+    () => filteredClients.find((c) => c.id === selectedId) ?? null,
+    [filteredClients, selectedId]
   );
 
   function onRowClick(id: string) {
@@ -189,14 +199,16 @@ export default function ClientsPage() {
                     Loading clients…
                   </td>
                 </tr>
-              ) : clients.length === 0 ? (
+              ) : filteredClients.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">
-                    No clients yet. Create one to get started.
+                    {clients.length === 0
+                      ? "No clients yet. Create one to get started."
+                      : "No clients with last contact in this month."}
                   </td>
                 </tr>
               ) : (
-                clients.map((c) => (
+                filteredClients.map((c) => (
                   <tr
                     key={c.id}
                     className="border-t border-border/70 hover:bg-surface/60 transition cursor-pointer"

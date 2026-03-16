@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "../ui/Button";
+import { useSelectedMonth, useSetSelectedMonth } from "@/lib/month";
 
 export function MonthSelector() {
-    const [selectedDate, setSelectedDate] = useState(new Date());
+    const { selectedDate, isCurrentMonth } = useSelectedMonth();
+    const setSelectedMonth = useSetSelectedMonth();
 
     const monthYear = useMemo(() => {
         return selectedDate.toLocaleString("default", {
@@ -13,30 +15,17 @@ export function MonthSelector() {
         });
     }, [selectedDate]);
 
-    const isCurrentMonth = useMemo(() => {
-        const today = new Date();
-
-        return (
-            selectedDate.getMonth() === today.getMonth() &&
-            selectedDate.getFullYear() === today.getFullYear()
-        );
-    }, [selectedDate]);
-
     const handlePrevMonth = () => {
-        setSelectedDate((prev) => {
-            return new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
-        });
+        setSelectedMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1));
     };
 
     const handleNextMonth = () => {
-        setSelectedDate((prev) => {
-            return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
-        });
+        setSelectedMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1));
     };
 
     const handleResetMonth = () => {
         const today = new Date();
-        setSelectedDate(new Date(today.getFullYear(), today.getMonth(), 1));
+        setSelectedMonth(new Date(today.getFullYear(), today.getMonth(), 1));
     };
 
     return (

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSelectedMonth } from "@/lib/month";
 import { Card } from "@/app/components/ui/Card";
 import { Button } from "@/app/components/ui/Button";
 import { Drawer } from "@/app/components/ui/Drawer";
@@ -375,7 +376,7 @@ export default function RevenuePage() {
     const [projectEditorOpen, setProjectEditorOpen] = useState(false);
     const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
-    const [selectedMonth, setSelectedMonth] = useState(() => new Date());
+    const { selectedDate: selectedMonth } = useSelectedMonth();
 
     const [goalDraft, setGoalDraft] = useState({
         revenue: 5000,
@@ -537,14 +538,6 @@ export default function RevenuePage() {
         }
     }
 
-    function goToPreviousMonth() {
-        setSelectedMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-    }
-
-    function goToNextMonth() {
-        setSelectedMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-    }
-
     function startEditingGoals() {
         setGoalDraft({
             revenue: activeGoals.revenue,
@@ -609,15 +602,6 @@ export default function RevenuePage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="secondary" onClick={goToPreviousMonth}>
-                        Prev month
-                    </Button>
-                    <div className="rounded-xl border border-border/70 px-3 py-2 text-sm text-foreground">
-                        {getMonthLabel(selectedMonth)}
-                    </div>
-                    <Button variant="secondary" onClick={goToNextMonth}>
-                        Next month
-                    </Button>
                     <Button variant="secondary" onClick={startEditingGoals}>
                         Edit goals
                     </Button>
