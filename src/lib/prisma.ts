@@ -8,7 +8,6 @@ if (!connectionString) {
 
 const adapter = new PrismaPg({
   connectionString,
-  ssl: { rejectUnauthorized: false },
 });
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
@@ -18,7 +17,7 @@ const cached = globalForPrisma.prisma as PrismaClient | undefined;
 const cachedIsValid =
   cached &&
   typeof (cached as { userSettings?: { findUnique?: unknown } }).userSettings?.findUnique ===
-    "function";
+  "function";
 
 export const prisma: PrismaClient =
   process.env.NODE_ENV === "production" || cachedIsValid
