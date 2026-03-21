@@ -1,10 +1,15 @@
 import { StackClientApp } from "@stackframe/stack";
 
-const projectId = process.env.NEXT_PUBLIC_STACK_PROJECT_ID;
-const publishableClientKey = process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY;
+const projectId = process.env.NEXT_PUBLIC_STACK_PROJECT_ID?.trim();
+const publishableClientKey =
+  process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY?.trim();
 
 if (!projectId) {
   throw new Error("Missing NEXT_PUBLIC_STACK_PROJECT_ID in .env.local");
+}
+
+if (!publishableClientKey) {
+  throw new Error("Missing NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY in .env.local");
 }
 
 export const stackClientApp = new StackClientApp({
