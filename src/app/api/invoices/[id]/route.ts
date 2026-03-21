@@ -85,7 +85,7 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   if (client !== undefined) data.clientId = await findOrCreateClient(user.id, client ?? "");
   if (project !== undefined) data.projectName = (project ?? "").trim() || null;
-  if (amount !== undefined) data.amount = amount;
+  if (amount !== undefined) data.amount = Math.max(0, Number(amount) || 0);
   if (status !== undefined) data.status = UI_TO_DB_STATUS[status ?? "Draft"] ?? "DRAFT";
   if (issuedOn !== undefined) {
     data.issuedAt = issuedOn && /^\d{4}-\d{2}-\d{2}$/.test(String(issuedOn).trim()) ? new Date(issuedOn) : null;

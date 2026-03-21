@@ -89,7 +89,7 @@ export async function PATCH(
   if (client !== undefined) data.clientId = await findOrCreateClient(user.id, client ?? "");
   if (status !== undefined) data.status = UI_TO_DB_STATUS[status ?? "Discovery"] ?? "LEAD";
   if (pricingType !== undefined) data.pricingType = pricingType ?? "fixed";
-  if (amount !== undefined) data.budget = amount;
+  if (amount !== undefined) data.budget = Math.max(0, Number(amount) || 0);
   if (hoursInvested !== undefined) data.hoursInvested = hoursInvested;
   if (due !== undefined) {
     data.dueDate = due && /^\d{4}-\d{2}-\d{2}$/.test(String(due).trim()) ? new Date(due) : null;

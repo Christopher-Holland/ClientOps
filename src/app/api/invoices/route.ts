@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         projectName: (project ?? "").trim() || null,
         invoiceNo,
         status: dbStatus,
-        amount: Number(amount) || 0,
+        amount: Math.max(0, Number(amount) || 0),
         issuedAt: issuedOn && /^\d{4}-\d{2}-\d{2}$/.test(String(issuedOn).trim()) ? new Date(issuedOn) : null,
         dueDate: dueOn && /^\d{4}-\d{2}-\d{2}$/.test(String(dueOn).trim()) ? new Date(dueOn) : null,
         paidAt: paidOn && /^\d{4}-\d{2}-\d{2}$/.test(String(paidOn).trim()) ? new Date(paidOn) : null,

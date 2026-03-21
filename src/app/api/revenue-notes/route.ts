@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         clientName: (client ?? "").trim() || "—",
         status: status ?? "Discovery",
         pricingType: pricingType ?? "fixed",
-        amount: Number(amount) || 0,
+        amount: Math.max(0, Number(amount) || 0),
         hoursInvested: hoursInvested != null ? Number(hoursInvested) : null,
         date: date && /^\d{4}-\d{2}-\d{2}$/.test(String(date).trim()) ? new Date(date) : new Date(),
         notes: (notes ?? "").trim() || null,

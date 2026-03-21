@@ -103,7 +103,7 @@ export async function POST(request: Request) {
         clientId,
         name: (name ?? "").trim() || "Untitled",
         status: dbStatus,
-        budget: amount != null ? Number(amount) : null,
+        budget: amount != null ? Math.max(0, Number(amount) || 0) : null,
         dueDate,
         pricingType: pricingType ?? "fixed",
         hoursInvested: hoursInvested != null && hoursInvested !== "" ? Number(hoursInvested) : null,

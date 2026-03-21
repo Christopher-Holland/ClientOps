@@ -57,7 +57,7 @@ export async function PATCH(
   if (client !== undefined) data.clientName = (client ?? "").trim() || "—";
   if (status !== undefined) data.status = status ?? "Discovery";
   if (pricingType !== undefined) data.pricingType = pricingType ?? "fixed";
-  if (amount !== undefined) data.amount = amount;
+  if (amount !== undefined) data.amount = Math.max(0, Number(amount) || 0);
   if (hoursInvested !== undefined) data.hoursInvested = hoursInvested;
   if (date !== undefined) {
     data.date = date && /^\d{4}-\d{2}-\d{2}$/.test(String(date).trim()) ? new Date(date) : note.date;
