@@ -185,6 +185,27 @@ function getMonthKey(date: Date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/** Projects that contribute revenue to the selected month. */
+function projectsForMonth(
+    projects: Project[],
+    monthKey: string
+): Project[] {
+    return projects.filter((p) => {
+        if (p.pricingType === "retainer") return true;
+        if (p.pricingType === "hourly") return true;
+        if (p.pricingType === "fixed") {
+            const dueMonth = p.due?.slice(0, 7);
+            return !dueMonth || dueMonth === monthKey;
+        }
+        return true;
+    });
+}
+
+/** Revenue notes dated in the selected month. */
+function notesForMonth(notes: RevenueNote[], monthKey: string): RevenueNote[] {
+    return notes.filter((n) => n.date?.slice(0, 7) === monthKey);
+}
+
 function getMonthLabel(date: Date) {
     return date.toLocaleString(undefined, {
         month: "long",
@@ -214,7 +235,7 @@ function buildRevenueTrend(
         };
     });
 
-    const currentMonthIndex = months.length - 1;
+    const monthKeys = new Set(months.map((m) => m.key));
 
     projects.forEach((p) => {
         if (p.pricingType === "retainer") {
@@ -225,12 +246,22 @@ function buildRevenueTrend(
         }
 
         if (p.pricingType === "fixed") {
-            months[currentMonthIndex].fixed += p.amount;
+            const dueMonthKey = p.due?.slice(0, 7);
+            if (dueMonthKey && monthKeys.has(dueMonthKey)) {
+                const bucket = months.find((m) => m.key === dueMonthKey);
+                if (bucket) bucket.fixed += p.amount;
+            }
             return;
         }
 
         if (p.pricingType === "hourly") {
-            months[currentMonthIndex].hourly += p.amount * (p.hoursInvested ?? 0);
+            const dueMonthKey = p.due?.slice(0, 7);
+            const value = p.amount * (p.hoursInvested ?? 0);
+            if (dueMonthKey && monthKeys.has(dueMonthKey)) {
+                const bucket = months.find((m) => m.key === dueMonthKey);
+                if (bucket) bucket.hourly += value;
+            }
+            return;
         }
     });
 
@@ -247,7 +278,7 @@ function buildRevenueTrend(
     }));
 }
 
-function BarChart({
+function RevenueTrendChart({
     data,
     activeKey,
 }: {
@@ -255,31 +286,118 @@ function BarChart({
     activeKey?: string;
 }) {
     const max = Math.max(...data.map((d) => d.total), 1);
+    const chartHeight = 160;
+    const chartWidth = 100;
+    const barCount = data.length;
+
+    const gridTicks = [0, 0.25, 0.5, 0.75, 1].map((p) => ({
+        y: chartHeight * (1 - p),
+        label: formatMoney(max * p),
+    }));
+
+    const linePoints = data
+        .map((item, i) => {
+            const x = barCount > 1 ? (i / (barCount - 1)) * chartWidth : chartWidth / 2;
+            const y = chartHeight - (item.total / max) * chartHeight;
+            return `${x},${y}`;
+        })
+        .join(" ");
+
+    const hasData = data.some((d) => d.total > 0);
 
     return (
         <div className="space-y-3">
-            <div className="flex h-44 items-end gap-2">
-                {data.map((item) => {
-                    const height = `${Math.max(10, (item.total / max) * 100)}%`;
-                    const isActive = item.key === activeKey;
+            <div className="relative" style={{ height: chartHeight + 28 }}>
+                {/* Y-axis labels */}
+                <div
+                    className="absolute left-0 top-0 flex flex-col justify-between text-xs text-muted-foreground"
+                    style={{ height: chartHeight, width: 48 }}
+                >
+                    {[...gridTicks].reverse().map((t, i) => (
+                        <span key={i}>{t.label}</span>
+                    ))}
+                </div>
 
-                    return (
-                        <div key={item.key} className="flex flex-1 flex-col items-center gap-2">
-                            <div className="flex h-full w-full items-end">
+                {/* Chart area with SVG */}
+                <div
+                    className="absolute left-12 right-0 overflow-hidden"
+                    style={{ height: chartHeight }}
+                >
+                    <svg
+                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                        className="h-full w-full"
+                        preserveAspectRatio="none"
+                    >
+                        {/* Grid lines */}
+                        {gridTicks.slice(1).map((t, i) => (
+                            <line
+                                key={i}
+                                x1={0}
+                                y1={t.y}
+                                x2={chartWidth}
+                                y2={t.y}
+                                stroke="currentColor"
+                                strokeOpacity={0.15}
+                                strokeDasharray="2 2"
+                            />
+                        ))}
+
+                        {/* Trend line */}
+                        {hasData && (
+                            <polyline
+                                points={linePoints}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.5}
+                                strokeOpacity={0.7}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        )}
+                    </svg>
+
+                    {/* Bars overlay */}
+                    <div
+                        className="absolute inset-0 flex items-end justify-between"
+                        style={{ paddingLeft: 4, paddingRight: 4 }}
+                    >
+                        {data.map((item) => {
+                            const heightPct = max > 0 ? Math.max(3, (item.total / max) * 100) : 3;
+                            const isActive = item.key === activeKey;
+
+                            return (
                                 <div
-                                    className={`w-full rounded-t-xl transition-all ${isActive ? "bg-accent" : "bg-accent/55"
-                                        }`}
-                                    style={{ height }}
+                                    key={item.key}
+                                    className="flex flex-1 flex-col items-center min-w-0"
                                     title={`${item.label}: ${formatMoney(item.total)}`}
-                                />
-                            </div>
-                            <span
-                                className={`text-xs ${isActive ? "font-medium text-foreground" : "text-muted-foreground"
-                                    }`}
-                            >
-                                {item.label}
-                            </span>
-                        </div>
+                                >
+                                    <div
+                                        className={`w-full max-w-[20px] rounded-t transition-all ${
+                                            isActive ? "bg-accent" : "bg-accent/55"
+                                        }`}
+                                        style={{ height: `${heightPct}%`, minHeight: 4 }}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* X-axis labels */}
+            <div className="flex justify-between gap-0.5 pl-12">
+                {data.map((item) => {
+                    const isActive = item.key === activeKey;
+                    return (
+                        <span
+                            key={item.key}
+                            className={`flex-1 min-w-0 truncate text-center text-xs ${
+                                isActive ? "font-medium text-foreground" : "text-muted-foreground"
+                            }`}
+                            title={item.label}
+                        >
+                            {item.label}
+                        </span>
                     );
                 })}
             </div>
@@ -400,13 +518,22 @@ export default function RevenuePage() {
     const isEditProject = Boolean(editingProject);
     const isEditNote = noteEditorMode === "edit" && Boolean(activeNote);
 
-    const snap = useMemo(() => calcRevenueSnapshot(projects), [projects]);
+    const selectedMonthKey = getMonthKey(selectedMonth);
+
+    const monthProjects = useMemo(
+        () => projectsForMonth(projects, selectedMonthKey),
+        [projects, selectedMonthKey]
+    );
+    const monthNotes = useMemo(
+        () => notesForMonth(notes, selectedMonthKey),
+        [notes, selectedMonthKey]
+    );
+
+    const snap = useMemo(() => calcRevenueSnapshot(monthProjects), [monthProjects]);
     const trend = useMemo(
         () => buildRevenueTrend(projects, notes, selectedMonth),
         [projects, notes, selectedMonth]
     );
-
-    const selectedMonthKey = getMonthKey(selectedMonth);
 
     const activeGoals = monthlyGoals[selectedMonthKey] ?? {
         revenue: 0,
@@ -431,7 +558,7 @@ export default function RevenuePage() {
 
     const goalProgress = monthlyGoal > 0 ? (currentMonth.total / monthlyGoal) * 100 : 0;
 
-    const pipelineNotesValue = notes
+    const pipelineNotesValue = monthNotes
         .filter((n) => n.status === "Discovery" || n.status === "Review")
         .reduce((sum, n) => sum + getRevenueNoteValue(n), 0);
 
@@ -781,7 +908,7 @@ export default function RevenuePage() {
                     </div>
 
                     <div className="mt-6">
-                        <BarChart
+                        <RevenueTrendChart
                             data={trend.map((m) => ({
                                 key: m.key,
                                 label: m.label,
@@ -965,7 +1092,7 @@ export default function RevenuePage() {
                         Revenue by project
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Internal tracking for project value, pricing efficiency, and active work.
+                        Projects contributing to {getMonthLabel(selectedMonth)}. Internal tracking for project value, pricing efficiency, and active work.
                     </p>
                 </div>
 
@@ -982,7 +1109,7 @@ export default function RevenuePage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {projects.map((p) => {
+                            {monthProjects.map((p) => {
                                 const er = effectiveRate(p);
                                 return (
                                     <tr
@@ -1014,7 +1141,7 @@ export default function RevenuePage() {
                 </div>
 
                 <div className="space-y-0 md:hidden">
-                    {projects.map((p) => {
+                    {monthProjects.map((p) => {
                         const er = effectiveRate(p);
                         return (
                             <button
@@ -1065,7 +1192,7 @@ export default function RevenuePage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {notes.map((n) => (
+                                {monthNotes.map((n) => (
                                     <tr
                                         key={n.id}
                                         onClick={() => openEditNote(n)}
@@ -1106,7 +1233,7 @@ export default function RevenuePage() {
                     </div>
 
                     <div className="space-y-0 md:hidden">
-                        {notes.map((n) => (
+                        {monthNotes.map((n) => (
                             <div
                                 key={n.id}
                                 className="border-t border-border/70 p-4 first:border-t-0"
