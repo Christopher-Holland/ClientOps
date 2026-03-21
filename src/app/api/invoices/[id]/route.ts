@@ -65,7 +65,12 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
   const { client, project, amount, status, issuedOn, dueOn, paidOn, notes } = body;
 
   const invoice = await prisma.invoice.findFirst({

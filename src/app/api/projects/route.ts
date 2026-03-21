@@ -28,6 +28,7 @@ function formatProject(p: {
   pricingType: string | null;
   hoursInvested: number | null;
   nextAction: string | null;
+  updatedAt: Date;
   client: { name: string };
 }) {
   const due = p.dueDate ? p.dueDate.toISOString().slice(0, 10) : "—";
@@ -41,6 +42,7 @@ function formatProject(p: {
     status: (DB_TO_UI_STATUS[p.status] ?? "Discovery") as "Discovery" | "Build" | "Review" | "Live",
     due,
     next: p.nextAction ?? "",
+    updatedAt: p.updatedAt.toISOString(),
   };
 }
 
@@ -79,7 +81,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
     const { name, client, status, pricingType, amount, hoursInvested, due, next } = body;
 
     const clientId = await findOrCreateClient(user.id, client ?? "");
