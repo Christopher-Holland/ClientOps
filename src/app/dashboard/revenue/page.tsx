@@ -192,10 +192,17 @@ function getMonthLabel(date: Date) {
     });
 }
 
-function buildRevenueTrend(projects: Project[], notes: RevenueNote[]) {
-    const today = new Date();
+function buildRevenueTrend(
+    projects: Project[],
+    notes: RevenueNote[],
+    anchorDate: Date
+) {
     const months = Array.from({ length: 12 }).map((_, index) => {
-        const d = new Date(today.getFullYear(), today.getMonth() - (11 - index), 1);
+        const d = new Date(
+            anchorDate.getFullYear(),
+            anchorDate.getMonth() - (11 - index),
+            1
+        );
 
         return {
             key: getMonthKey(d),
@@ -379,8 +386,8 @@ export default function RevenuePage() {
     const { selectedDate: selectedMonth } = useSelectedMonth();
 
     const [goalDraft, setGoalDraft] = useState({
-        revenue: 5000,
-        pipeline: 8000,
+        revenue: 0,
+        pipeline: 10000,
     });
 
     const [isEditingGoals, setIsEditingGoals] = useState(false);
@@ -394,13 +401,16 @@ export default function RevenuePage() {
     const isEditNote = noteEditorMode === "edit" && Boolean(activeNote);
 
     const snap = useMemo(() => calcRevenueSnapshot(projects), [projects]);
-    const trend = useMemo(() => buildRevenueTrend(projects, notes), [projects, notes]);
+    const trend = useMemo(
+        () => buildRevenueTrend(projects, notes, selectedMonth),
+        [projects, notes, selectedMonth]
+    );
 
     const selectedMonthKey = getMonthKey(selectedMonth);
 
     const activeGoals = monthlyGoals[selectedMonthKey] ?? {
-        revenue: 5000,
-        pipeline: 8000,
+        revenue: 0,
+        pipeline: 10000,
     };
 
     const monthlyGoal = activeGoals.revenue;
@@ -570,11 +580,13 @@ export default function RevenuePage() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to save goals");
+            setError(null);
             setMonthlyGoals((prev) => ({
                 ...prev,
                 [selectedMonthKey]: { revenue, pipeline },
             }));
             setIsEditingGoals(false);
+            await fetchGoals();
         } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to save goals");
         }
@@ -635,10 +647,10 @@ export default function RevenuePage() {
 
                     <div className="mt-4">
                         <MiniProgress
-                            value={currentMonth.total}
-                            total={monthlyGoal}
-                            label={`${formatMoney(currentMonth.total)} tracked`}
-                            hint="Goal progress"
+                            value={totalPipelineValue}
+                            total={pipelineGoal}
+                            label={`${formatMoney(totalPipelineValue)} in pipeline`}
+                            hint={`Goal: ${formatMoney(pipelineGoal)}`}
                         />
                     </div>
 
@@ -681,15 +693,12 @@ export default function RevenuePage() {
                             </div>
 
                             <div className="flex items-center justify-end gap-2">
-                                <Button variant="primary" onClick={saveGoals}>
-                                    Save goals
-                                </Button>
-                            </div>
-                            <div className="flex items-center justify-end gap-2">
                                 <Button variant="secondary" onClick={cancelEditingGoals}>
                                     Cancel
                                 </Button>
-
+                                <Button variant="primary" onClick={saveGoals}>
+                                    Save goals
+                                </Button>
                             </div>
                         </div>
                     ) : null}
@@ -1138,13 +1147,6 @@ export default function RevenuePage() {
                 </Card>
             ) : null}
 
-            <Card>
-                <div className="text-sm font-semibold tracking-tight">Next step</div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    Next evolution: connect Billing so this page can distinguish projected,
-                    invoiced, collected, and outstanding revenue in one place.
-                </p>
-            </Card>
 
             <Drawer
                 open={noteEditorOpen}
