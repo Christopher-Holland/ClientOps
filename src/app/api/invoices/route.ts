@@ -61,18 +61,23 @@ async function generateInvoiceNo(userId: string): Promise<string> {
 }
 
 export async function GET(request: Request) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const invoices = await prisma.invoice.findMany({
+      where: { userId: user.id },
+      include: { client: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return NextResponse.json(invoices.map(formatInvoice));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to load invoices";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const invoices = await prisma.invoice.findMany({
-    where: { userId: user.id },
-    include: { client: true },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  return NextResponse.json(invoices.map(formatInvoice));
 }
 
 export async function POST(request: Request) {

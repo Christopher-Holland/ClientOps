@@ -60,18 +60,23 @@ async function findOrCreateClient(userId: string, clientName: string) {
 }
 
 export async function GET(request: Request) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const projects = await prisma.project.findMany({
+      where: { userId: user.id },
+      include: { client: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return NextResponse.json(projects.map(formatProject));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to load projects";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const projects = await prisma.project.findMany({
-    where: { userId: user.id },
-    include: { client: true },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  return NextResponse.json(projects.map(formatProject));
 }
 
 export async function POST(request: Request) {

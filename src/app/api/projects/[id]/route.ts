@@ -61,69 +61,79 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { id } = await params;
-  let body: Record<string, unknown>;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const { name, client, status, pricingType, amount, hoursInvested, due, next } = body;
+
+    const project = await prisma.project.findFirst({
+      where: { id, userId: user.id },
+      include: { client: true },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const data: Record<string, unknown> = {};
+    if (name !== undefined) data.name = (name ?? "").trim() || "Untitled";
+    if (client !== undefined) data.clientId = await findOrCreateClient(user.id, client ?? "");
+    if (status !== undefined) data.status = UI_TO_DB_STATUS[status ?? "Discovery"] ?? "LEAD";
+    if (pricingType !== undefined) data.pricingType = pricingType ?? "fixed";
+    if (amount !== undefined) data.budget = Math.max(0, Number(amount) || 0);
+    if (hoursInvested !== undefined) data.hoursInvested = hoursInvested;
+    if (due !== undefined) {
+      data.dueDate = due && /^\d{4}-\d{2}-\d{2}$/.test(String(due).trim()) ? new Date(due) : null;
+    }
+    if (next !== undefined) data.nextAction = (next ?? "").trim() || null;
+
+    const updated = await prisma.project.update({
+      where: { id },
+      data,
+      include: { client: true },
+    });
+
+    return NextResponse.json(formatProject(updated));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update project";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  const { name, client, status, pricingType, amount, hoursInvested, due, next } = body;
-
-  const project = await prisma.project.findFirst({
-    where: { id, userId: user.id },
-    include: { client: true },
-  });
-
-  if (!project) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const data: Record<string, unknown> = {};
-  if (name !== undefined) data.name = (name ?? "").trim() || "Untitled";
-  if (client !== undefined) data.clientId = await findOrCreateClient(user.id, client ?? "");
-  if (status !== undefined) data.status = UI_TO_DB_STATUS[status ?? "Discovery"] ?? "LEAD";
-  if (pricingType !== undefined) data.pricingType = pricingType ?? "fixed";
-  if (amount !== undefined) data.budget = Math.max(0, Number(amount) || 0);
-  if (hoursInvested !== undefined) data.hoursInvested = hoursInvested;
-  if (due !== undefined) {
-    data.dueDate = due && /^\d{4}-\d{2}-\d{2}$/.test(String(due).trim()) ? new Date(due) : null;
-  }
-  if (next !== undefined) data.nextAction = (next ?? "").trim() || null;
-
-  const updated = await prisma.project.update({
-    where: { id },
-    data,
-    include: { client: true },
-  });
-
-  return NextResponse.json(formatProject(updated));
 }
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const project = await prisma.project.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    await prisma.project.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to delete project";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { id } = await params;
-
-  const project = await prisma.project.findFirst({
-    where: { id, userId: user.id },
-  });
-
-  if (!project) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  await prisma.project.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
 }

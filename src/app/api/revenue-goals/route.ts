@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 function formatGoal(g: {
   monthKey: string;
   revenueGoal: { toNumber: () => number };
@@ -9,12 +11,14 @@ function formatGoal(g: {
 }) {
   return {
     monthKey: g.monthKey,
-    revenue: typeof g.revenueGoal === "object" && "toNumber" in g.revenueGoal
-      ? g.revenueGoal.toNumber()
-      : Number(g.revenueGoal),
-    pipeline: typeof g.pipelineGoal === "object" && "toNumber" in g.pipelineGoal
-      ? g.pipelineGoal.toNumber()
-      : Number(g.pipelineGoal),
+    revenue:
+      typeof g.revenueGoal === "object" && "toNumber" in g.revenueGoal
+        ? g.revenueGoal.toNumber()
+        : Number(g.revenueGoal),
+    pipeline:
+      typeof g.pipelineGoal === "object" && "toNumber" in g.pipelineGoal
+        ? g.pipelineGoal.toNumber()
+        : Number(g.pipelineGoal),
   };
 }
 
@@ -58,10 +62,22 @@ export async function PUT(request: Request) {
     } catch {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
-    const { monthKey, revenue, pipeline } = body;
 
-    if (!monthKey || typeof monthKey !== "string") {
+    const rawMonthKey = body.monthKey;
+    const revenue = body.revenue;
+    const pipeline = body.pipeline;
+
+    if (typeof rawMonthKey !== "string") {
       return NextResponse.json({ error: "monthKey is required" }, { status: 400 });
+    }
+
+    const monthKey = rawMonthKey.trim();
+
+    if (!MONTH_KEY_PATTERN.test(monthKey)) {
+      return NextResponse.json(
+        { error: "monthKey must be in YYYY-MM format" },
+        { status: 400 }
+      );
     }
 
     const revenueVal = Math.max(0, Number(revenue) || 0);

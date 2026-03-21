@@ -32,66 +32,76 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { id } = await params;
-  let body: Record<string, unknown>;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const { name, status, lastContact, nextAction, email, notes } = body;
+
+    const client = await prisma.client.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!client) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const updated = await prisma.client.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name: name?.trim() || "Untitled" }),
+        ...(status !== undefined && { status }),
+        ...(lastContact !== undefined && {
+          lastContact: lastContact ? new Date(lastContact) : null,
+        }),
+        ...(nextAction !== undefined && {
+          nextAction: nextAction?.trim() || null,
+        }),
+        ...(email !== undefined && { email: email?.trim() || null }),
+        ...(notes !== undefined && { notesText: notes?.trim() || null }),
+      },
+    });
+
+    return NextResponse.json(formatClient(updated));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update client";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  const { name, status, lastContact, nextAction, email, notes } = body;
-
-  const client = await prisma.client.findFirst({
-    where: { id, userId: user.id },
-  });
-
-  if (!client) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const updated = await prisma.client.update({
-    where: { id },
-    data: {
-      ...(name !== undefined && { name: name?.trim() || "Untitled" }),
-      ...(status !== undefined && { status }),
-      ...(lastContact !== undefined && {
-        lastContact: lastContact ? new Date(lastContact) : null,
-      }),
-      ...(nextAction !== undefined && {
-        nextAction: nextAction?.trim() || null,
-      }),
-      ...(email !== undefined && { email: email?.trim() || null }),
-      ...(notes !== undefined && { notesText: notes?.trim() || null }),
-    },
-  });
-
-  return NextResponse.json(formatClient(updated));
 }
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const client = await prisma.client.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!client) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    await prisma.client.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to delete client";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { id } = await params;
-
-  const client = await prisma.client.findFirst({
-    where: { id, userId: user.id },
-  });
-
-  if (!client) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  await prisma.client.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
 }

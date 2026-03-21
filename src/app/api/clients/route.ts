@@ -29,44 +29,54 @@ function formatClient(c: {
 }
 
 export async function GET(request: Request) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const clients = await prisma.client.findMany({
+      where: { userId: user.id },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return NextResponse.json(clients.map(formatClient));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to load clients";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const clients = await prisma.client.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  return NextResponse.json(clients.map(formatClient));
 }
 
 export async function POST(request: Request) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let body: Record<string, unknown>;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const { name, status, lastContact, nextAction, email, notes } = body;
+
+    const client = await prisma.client.create({
+      data: {
+        userId: user.id,
+        name: name?.trim() || "New client",
+        status: status ?? "Lead",
+        lastContact: lastContact ? new Date(lastContact) : null,
+        nextAction: nextAction?.trim() || null,
+        email: email?.trim() || null,
+        notesText: notes?.trim() || null,
+      },
+    });
+
+    return NextResponse.json(formatClient(client));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to create client";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  const { name, status, lastContact, nextAction, email, notes } = body;
-
-  const client = await prisma.client.create({
-    data: {
-      userId: user.id,
-      name: name?.trim() || "New client",
-      status: status ?? "Lead",
-      lastContact: lastContact ? new Date(lastContact) : null,
-      nextAction: nextAction?.trim() || null,
-      email: email?.trim() || null,
-      notesText: notes?.trim() || null,
-    },
-  });
-
-  return NextResponse.json(formatClient(client));
 }

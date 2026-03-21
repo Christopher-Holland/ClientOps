@@ -27,17 +27,22 @@ function formatNote(n: {
 }
 
 export async function GET(request: Request) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const notes = await prisma.revenueNote.findMany({
+      where: { userId: user.id },
+      orderBy: { date: "desc" },
+    });
+
+    return NextResponse.json(notes.map(formatNote));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to load revenue notes";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const notes = await prisma.revenueNote.findMany({
-    where: { userId: user.id },
-    orderBy: { date: "desc" },
-  });
-
-  return NextResponse.json(notes.map(formatNote));
 }
 
 export async function POST(request: Request) {
