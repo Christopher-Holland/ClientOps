@@ -28,6 +28,14 @@ export default function SignInPage() {
           <div className="text-center">
             <img src="/clientops.png" alt="ClientOps" className="mx-auto h-32 w-auto object-contain" />
           </div>
+          <div className="text-center">
+            <p className="text-sm text-accent">
+              Demo account: <span className="font-medium">demo@clientops.com</span>
+            </p>
+            <p className="text-sm text-accent">
+              Demo password: <span className="font-medium">demo123</span>
+            </p>
+          </div>
 
           <div className="mt-4">
             <SignIn
