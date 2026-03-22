@@ -86,16 +86,16 @@ export async function PATCH(
     }
 
     const data: Record<string, unknown> = {};
-    if (name !== undefined) data.name = (name ?? "").trim() || "Untitled";
-    if (client !== undefined) data.clientId = await findOrCreateClient(user.id, client ?? "");
-    if (status !== undefined) data.status = UI_TO_DB_STATUS[status ?? "Discovery"] ?? "LEAD";
-    if (pricingType !== undefined) data.pricingType = pricingType ?? "fixed";
+    if (name !== undefined) data.name = String(name ?? "").trim() || "Untitled";
+    if (client !== undefined) data.clientId = await findOrCreateClient(user.id, String(client ?? ""));
+    if (status !== undefined) data.status = UI_TO_DB_STATUS[String(status ?? "Discovery")] ?? "LEAD";
+    if (pricingType !== undefined) data.pricingType = String(pricingType ?? "fixed");
     if (amount !== undefined) data.budget = Math.max(0, Number(amount) || 0);
-    if (hoursInvested !== undefined) data.hoursInvested = hoursInvested;
+    if (hoursInvested !== undefined) data.hoursInvested = Number(hoursInvested);
     if (due !== undefined) {
-      data.dueDate = due && /^\d{4}-\d{2}-\d{2}$/.test(String(due).trim()) ? new Date(due) : null;
+      data.dueDate = due && /^\d{4}-\d{2}-\d{2}$/.test(String(due).trim()) ? new Date(String(due)) : null;
     }
-    if (next !== undefined) data.nextAction = (next ?? "").trim() || null;
+    if (next !== undefined) data.nextAction = String(next ?? "").trim() || null;
 
     const updated = await prisma.project.update({
       where: { id },

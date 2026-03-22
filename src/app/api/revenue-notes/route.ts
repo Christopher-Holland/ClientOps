@@ -63,14 +63,14 @@ export async function POST(request: Request) {
     const note = await prisma.revenueNote.create({
       data: {
         userId: user.id,
-        name: (name ?? "").trim() || "Untitled",
-        clientName: (client ?? "").trim() || "—",
-        status: status ?? "Discovery",
-        pricingType: pricingType ?? "fixed",
+        name: String(name ?? "").trim() || "Untitled",
+        clientName: String(client ?? "").trim() || "—",
+        status: String(status ?? "Discovery"),
+        pricingType: String(pricingType ?? "fixed"),
         amount: Math.max(0, Number(amount) || 0),
         hoursInvested: hoursInvested != null ? Number(hoursInvested) : null,
-        date: date && /^\d{4}-\d{2}-\d{2}$/.test(String(date).trim()) ? new Date(date) : new Date(),
-        notes: (notes ?? "").trim() || null,
+        date: date && /^\d{4}-\d{2}-\d{2}$/.test(String(date).trim()) ? new Date(String(date)) : new Date(),
+        notes: String(notes ?? "").trim() || null,
       },
     });
 

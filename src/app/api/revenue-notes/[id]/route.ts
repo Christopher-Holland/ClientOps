@@ -54,16 +54,16 @@ export async function PATCH(
     }
 
     const data: Record<string, unknown> = {};
-    if (name !== undefined) data.name = (name ?? "").trim() || "Untitled";
-    if (client !== undefined) data.clientName = (client ?? "").trim() || "—";
-    if (status !== undefined) data.status = status ?? "Discovery";
-    if (pricingType !== undefined) data.pricingType = pricingType ?? "fixed";
+    if (name !== undefined) data.name = String(name ?? "").trim() || "Untitled";
+    if (client !== undefined) data.clientName = String(client ?? "").trim() || "—";
+    if (status !== undefined) data.status = String(status ?? "Discovery");
+    if (pricingType !== undefined) data.pricingType = String(pricingType ?? "fixed");
     if (amount !== undefined) data.amount = Math.max(0, Number(amount) || 0);
-    if (hoursInvested !== undefined) data.hoursInvested = hoursInvested;
+    if (hoursInvested !== undefined) data.hoursInvested = Number(hoursInvested);
     if (date !== undefined) {
-      data.date = date && /^\d{4}-\d{2}-\d{2}$/.test(String(date).trim()) ? new Date(date) : note.date;
+      data.date = date && /^\d{4}-\d{2}-\d{2}$/.test(String(date).trim()) ? new Date(String(date)) : note.date;
     }
-    if (notes !== undefined) data.notes = (notes ?? "").trim() || null;
+    if (notes !== undefined) data.notes = String(notes ?? "").trim() || null;
 
     const updated = await prisma.revenueNote.update({
       where: { id },

@@ -84,20 +84,20 @@ export async function PATCH(
     }
 
     const data: Record<string, unknown> = {};
-    if (client !== undefined) data.clientId = await findOrCreateClient(user.id, client ?? "");
-    if (project !== undefined) data.projectName = (project ?? "").trim() || null;
+    if (client !== undefined) data.clientId = await findOrCreateClient(user.id, String(client ?? ""));
+    if (project !== undefined) data.projectName = String(project ?? "").trim() || null;
     if (amount !== undefined) data.amount = Math.max(0, Number(amount) || 0);
-    if (status !== undefined) data.status = UI_TO_DB_STATUS[status ?? "Draft"] ?? "DRAFT";
+    if (status !== undefined) data.status = UI_TO_DB_STATUS[String(status ?? "Draft")] ?? "DRAFT";
     if (issuedOn !== undefined) {
-      data.issuedAt = issuedOn && /^\d{4}-\d{2}-\d{2}$/.test(String(issuedOn).trim()) ? new Date(issuedOn) : null;
+      data.issuedAt = issuedOn && /^\d{4}-\d{2}-\d{2}$/.test(String(issuedOn).trim()) ? new Date(String(issuedOn)) : null;
     }
     if (dueOn !== undefined) {
-      data.dueDate = dueOn && /^\d{4}-\d{2}-\d{2}$/.test(String(dueOn).trim()) ? new Date(dueOn) : null;
+      data.dueDate = dueOn && /^\d{4}-\d{2}-\d{2}$/.test(String(dueOn).trim()) ? new Date(String(dueOn)) : null;
     }
     if (paidOn !== undefined) {
-      data.paidAt = paidOn && /^\d{4}-\d{2}-\d{2}$/.test(String(paidOn).trim()) ? new Date(paidOn) : null;
+      data.paidAt = paidOn && /^\d{4}-\d{2}-\d{2}$/.test(String(paidOn).trim()) ? new Date(String(paidOn)) : null;
     }
-    if (notes !== undefined) data.notes = (notes ?? "").trim() || null;
+    if (notes !== undefined) data.notes = String(notes ?? "").trim() || null;
 
     const updated = await prisma.invoice.update({
       where: { id },

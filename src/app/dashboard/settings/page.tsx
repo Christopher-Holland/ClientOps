@@ -32,7 +32,12 @@ const DEFAULTS = {
   weekStartsOn: "Monday",
 } as const;
 
-type Settings = typeof DEFAULTS;
+type Settings = {
+  timezone: string;
+  currency: string;
+  defaultProjectStatus: string;
+  weekStartsOn: string;
+};
 
 function escapeCsvCell(val: string | number | undefined): string {
   if (val === undefined || val === null) return "";

@@ -94,25 +94,25 @@ export async function POST(request: Request) {
     }
     const { name, client, status, pricingType, amount, hoursInvested, due, next } = body;
 
-    const clientId = await findOrCreateClient(user.id, client ?? "");
+    const clientId = await findOrCreateClient(user.id, String(client ?? ""));
 
     const dueDate = due && /^\d{4}-\d{2}-\d{2}$/.test(String(due).trim())
-      ? new Date(due)
+      ? new Date(String(due))
       : null;
 
-    const dbStatus = UI_TO_DB_STATUS[status ?? "Discovery"] ?? "LEAD";
+    const dbStatus = UI_TO_DB_STATUS[String(status ?? "Discovery")] ?? "LEAD";
 
     const project = await prisma.project.create({
       data: {
         userId: user.id,
         clientId,
-        name: (name ?? "").trim() || "Untitled",
+        name: String(name ?? "").trim() || "Untitled",
         status: dbStatus,
         budget: amount != null ? Math.max(0, Number(amount) || 0) : null,
         dueDate,
-        pricingType: pricingType ?? "fixed",
+        pricingType: String(pricingType ?? "fixed"),
         hoursInvested: hoursInvested != null && hoursInvested !== "" ? Number(hoursInvested) : null,
-        nextAction: (next ?? "").trim() || null,
+        nextAction: String(next ?? "").trim() || null,
       },
       include: { client: true },
     });

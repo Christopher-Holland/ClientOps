@@ -95,23 +95,23 @@ export async function POST(request: Request) {
     }
     const { client, project, amount, status, issuedOn, dueOn, paidOn, notes } = body;
 
-    const clientId = await findOrCreateClient(user.id, client ?? "");
+    const clientId = await findOrCreateClient(user.id, String(client ?? ""));
     const invoiceNo = await generateInvoiceNo(user.id);
 
-    const dbStatus = UI_TO_DB_STATUS[status ?? "Draft"] ?? "DRAFT";
+    const dbStatus = UI_TO_DB_STATUS[String(status ?? "Draft")] ?? "DRAFT";
 
     const invoice = await prisma.invoice.create({
       data: {
         userId: user.id,
         clientId,
-        projectName: (project ?? "").trim() || null,
+        projectName: String(project ?? "").trim() || null,
         invoiceNo,
         status: dbStatus,
         amount: Math.max(0, Number(amount) || 0),
-        issuedAt: issuedOn && /^\d{4}-\d{2}-\d{2}$/.test(String(issuedOn).trim()) ? new Date(issuedOn) : null,
-        dueDate: dueOn && /^\d{4}-\d{2}-\d{2}$/.test(String(dueOn).trim()) ? new Date(dueOn) : null,
-        paidAt: paidOn && /^\d{4}-\d{2}-\d{2}$/.test(String(paidOn).trim()) ? new Date(paidOn) : null,
-        notes: (notes ?? "").trim() || null,
+        issuedAt: issuedOn && /^\d{4}-\d{2}-\d{2}$/.test(String(issuedOn).trim()) ? new Date(String(issuedOn)) : null,
+        dueDate: dueOn && /^\d{4}-\d{2}-\d{2}$/.test(String(dueOn).trim()) ? new Date(String(dueOn)) : null,
+        paidAt: paidOn && /^\d{4}-\d{2}-\d{2}$/.test(String(paidOn).trim()) ? new Date(String(paidOn)) : null,
+        notes: String(notes ?? "").trim() || null,
       },
       include: { client: true },
     });
