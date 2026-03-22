@@ -33,7 +33,7 @@ export default function SignInPage() {
               Demo account: <span className="font-medium">demo@clientops.com</span>
             </p>
             <p className="text-sm text-accent">
-              Demo password: <span className="font-medium">demo123</span>
+              Demo password: <span className="font-medium">clientops123</span>
             </p>
           </div>
 
