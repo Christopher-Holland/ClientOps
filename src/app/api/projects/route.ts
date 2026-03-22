@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 
 const UI_TO_DB_STATUS: Record<string, "LEAD" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "ARCHIVED"> = {
   Discovery: "LEAD",
@@ -23,7 +22,7 @@ function formatProject(p: {
   id: string;
   name: string;
   status: string;
-  budget: Prisma.Decimal | null;
+  budget: { toNumber?: () => number } | number | null;
   dueDate: Date | null;
   pricingType: string | null;
   hoursInvested: number | null;
