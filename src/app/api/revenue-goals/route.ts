@@ -35,7 +35,10 @@ export async function GET(request: Request) {
     });
 
     const byMonth = goals.reduce(
-      (acc: Record<string, { revenue: number; pipeline: number }>, g) => {
+      (
+        acc: Record<string, { revenue: number; pipeline: number }>,
+        g: Parameters<typeof formatGoal>[0]
+      ) => {
         acc[g.monthKey] = formatGoal(g);
         return acc;
       },
