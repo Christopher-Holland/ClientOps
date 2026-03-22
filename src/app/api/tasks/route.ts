@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(
-      tasks.map((t) => ({
+      tasks.map((t: (typeof tasks)[number]) => ({
         id: t.id,
         title: t.title,
         status: t.status,
