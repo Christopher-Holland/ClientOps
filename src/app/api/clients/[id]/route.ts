@@ -58,16 +58,18 @@ export async function PATCH(
     const updated = await prisma.client.update({
       where: { id },
       data: {
-        ...(name !== undefined && { name: name?.trim() || "Untitled" }),
-        ...(status !== undefined && { status }),
+        ...(name !== undefined && {
+          name: String(name ?? "").trim() || "Untitled",
+        }),
+        ...(status !== undefined && { status: String(status) }),
         ...(lastContact !== undefined && {
-          lastContact: lastContact ? new Date(lastContact) : null,
+          lastContact: lastContact != null ? new Date(String(lastContact)) : null,
         }),
         ...(nextAction !== undefined && {
-          nextAction: nextAction?.trim() || null,
+          nextAction: String(nextAction ?? "").trim() || null,
         }),
-        ...(email !== undefined && { email: email?.trim() || null }),
-        ...(notes !== undefined && { notesText: notes?.trim() || null }),
+        ...(email !== undefined && { email: String(email ?? "").trim() || null }),
+        ...(notes !== undefined && { notesText: String(notes ?? "").trim() || null }),
       },
     });
 
