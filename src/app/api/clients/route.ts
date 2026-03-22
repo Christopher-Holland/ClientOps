@@ -65,12 +65,12 @@ export async function POST(request: Request) {
     const client = await prisma.client.create({
       data: {
         userId: user.id,
-        name: name?.trim() || "New client",
-        status: status ?? "Lead",
-        lastContact: lastContact ? new Date(lastContact) : null,
-        nextAction: nextAction?.trim() || null,
-        email: email?.trim() || null,
-        notesText: notes?.trim() || null,
+        name: String(name ?? "").trim() || "New client",
+        status: String(status ?? "Lead"),
+        lastContact: lastContact != null ? new Date(String(lastContact)) : null,
+        nextAction: String(nextAction ?? "").trim() || null,
+        email: String(email ?? "").trim() || null,
+        notesText: String(notes ?? "").trim() || null,
       },
     });
 
