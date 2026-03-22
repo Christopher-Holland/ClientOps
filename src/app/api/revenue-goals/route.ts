@@ -34,12 +34,12 @@ export async function GET(request: Request) {
       orderBy: { monthKey: "desc" },
     });
 
-    const byMonth = goals.reduce<Record<string, { revenue: number; pipeline: number }>>(
-      (acc, g) => {
+    const byMonth = goals.reduce(
+      (acc: Record<string, { revenue: number; pipeline: number }>, g) => {
         acc[g.monthKey] = formatGoal(g);
         return acc;
       },
-      {}
+      {} as Record<string, { revenue: number; pipeline: number }>
     );
 
     return NextResponse.json(byMonth);
